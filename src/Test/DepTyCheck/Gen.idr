@@ -74,14 +74,6 @@ record GenAlternatives (0 mustBeNotEmpty : Bool) (0 em : Emptiness) (a : Type) w
   constructor MkGenAlts
   unGenAlts : LazyLst mustBeNotEmpty (Nat1, Lazy (Gen em a))
 
-isEmpty : Gen em a -> Bool
-isEmpty Empty = True
-isEmpty _     = False
-
-%inline
-isNonEmpty : Gen em a -> Bool
-isNonEmpty = not . isEmpty
-
 (.totalWeight) : GenAlternatives True em a -> Nat1
 (.totalWeight) = foldl1 (+) . map fst . unGenAlts
 
@@ -163,10 +155,6 @@ namespace OneOf
   altsNonEmptyTrue : {em : _} -> AltsNonEmpty True em
   altsNonEmptyTrue {em=NonEmpty}   = NT
   altsNonEmptyTrue {em=MaybeEmpty} = Sx
-
-mkOneOfMaybeEmpty : (xs : LazyLst altsNe (Nat1, Lazy (Gen alem a))) -> Gen0 a
-mkOneOfMaybeEmpty []        = Empty
-mkOneOfMaybeEmpty (x :: xs) = OneOf $ MkGenAlts $ x :: xs
 
 strengthen : Gen em a -> Maybe $ Gen em a
 strengthen Empty = Nothing
