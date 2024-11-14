@@ -60,8 +60,8 @@ data Gen : Emptiness -> Type -> Type where
 
   Raw   : RawGen a -> Gen em a
 
-  OneOf : (gs : GenAlternatives True alem a) ->
-          (0 _ : alem `NoWeaker` em) =>
+  OneOf : (0 _ : alem `NoWeaker` em) =>
+          (gs : GenAlternatives True alem a) ->
           Gen em a
 
   Bind  : {biem : _} ->
@@ -177,7 +177,7 @@ mkOneOf : {em : _} ->
           Gen em a
 mkOneOf {em=NonEmpty} @{nw} @{NT} xs with 0 (nonEmptyIsMaximal nw)
   _ | Refl = OneOf $ MkGenAlts xs
-mkOneOf {em=MaybeEmpty} xs = maybe Empty (\gs => OneOf $ MkGenAlts gs) $ strengthen $ mapMaybeTaggedLazy strengthen xs
+mkOneOf {em=MaybeEmpty} xs = maybe Empty (OneOf . MkGenAlts) $ strengthen $ mapMaybeTaggedLazy strengthen xs
 
 --------------------------
 --- Running generators ---
@@ -312,7 +312,7 @@ export
   Raw g    >>= nf = Bind g nf
   (OneOf @{nw} oo >>= nf) {em=NonEmpty} with 0 (nonEmptyIsMaximal nw)
     _ | Refl = OneOf $ mapOneOf oo $ assert_total (>>= nf)
-  (OneOf oo >>= nf) {em=MaybeEmpty} = maybe Empty (\gs => OneOf gs) $ strengthen
+  (OneOf oo >>= nf) {em=MaybeEmpty} = maybe Empty OneOf $ strengthen
     $ flip mapMaybe oo $ strengthen . assert_total (>>= nf) . relax
   Bind x f     >>= nf = Bind x $ assert_total (>>= nf) . relax . f
   Labelled l x >>= nf = label l $ x >>= nf
