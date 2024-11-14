@@ -166,6 +166,10 @@ namespace GenAlternatives
   strengthen : GenAlternatives ne em a -> Maybe $ GenAlternatives True em a
   strengthen = map MkGenAlts . strengthen . unGenAlts
 
+  export %inline
+  mapMaybe : (Gen iem a -> Maybe (Gen em b)) -> GenAlternatives ne iem a -> GenAlternatives False em b
+  mapMaybe f = MkGenAlts . mapMaybeTaggedLazy f . unGenAlts
+
 mkOneOf : {em : _} ->
           (0 _ : alem `NoWeaker` em) =>
           (0 _ : AltsNonEmpty altsNe em) =>
@@ -303,12 +307,13 @@ Applicative (Gen em) where
 
 export
 {em : _} -> Monad (Gen em) where
-  Empty        >>= _  = Empty
-  Pure x       >>= nf = nf x
-  Raw g        >>= nf = Bind g nf
+  Empty    >>= _  = Empty
+  Pure x   >>= nf = nf x
+  Raw g    >>= nf = Bind g nf
   (OneOf @{nw} oo >>= nf) {em=NonEmpty} with 0 (nonEmptyIsMaximal nw)
     _ | Refl = OneOf $ mapOneOf oo $ assert_total (>>= nf)
-  (OneOf oo >>= nf) {em=MaybeEmpty} = mkOneOf $ flip mapTaggedLazy oo.unGenAlts $ assert_total (>>= nf) . relax
+  (OneOf oo >>= nf) {em=MaybeEmpty} = maybe Empty (\gs => OneOf gs) $ strengthen
+    $ flip mapMaybe oo $ strengthen . assert_total (>>= nf) . relax
   Bind x f     >>= nf = Bind x $ assert_total (>>= nf) . relax . f
   Labelled l x >>= nf = label l $ x >>= nf
 
