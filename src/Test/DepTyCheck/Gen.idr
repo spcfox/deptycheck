@@ -10,9 +10,6 @@ import public Data.CheckedEmpty.List.Lazy
 import Data.Fuel
 import public Data.Nat1
 import Data.List
-import Data.List.Elem
-import Data.List.Properties
-import Data.List.Quantifiers.Properties
 import Data.List.Lazy
 import Data.List.Lazy.Extra
 import Data.Vect
@@ -21,7 +18,7 @@ import Decidable.Equality
 
 import public Language.Implicits.IfUnsolved
 
-import Syntax.WithProof.Extra
+import Syntax.WithProof
 
 import public Test.DepTyCheck.Gen.Emptiness
 import public Test.DepTyCheck.Gen.Labels
@@ -130,10 +127,10 @@ label l g     = Labelled l g
 ------------------------------------------------
 
 mapTaggedLazy : Functor f => (a -> b) -> f (tag, Lazy a) -> f (tag, Lazy b)
-mapTaggedLazy f = map $ \x => (fst x, wrapLazy f $ snd x)
+mapTaggedLazy = map . mapSnd . wrapLazy
 
 mapOneOf : GenAlternatives ne iem a -> (Gen iem a -> Gen em b) -> GenAlternatives ne em b
-mapOneOf $ MkGenAlts gs = MkGenAlts . flip mapTaggedLazy gs
+mapOneOf oo f = MkGenAlts $ mapTaggedLazy f oo.unGenAlts
 
 -----------------------------
 --- Emptiness tweakenings ---
@@ -589,9 +586,9 @@ export
 suchThat_withPrf : Gen em a -> (p : a -> Bool) -> Gen0 $ a `Subset` So . p
 suchThat_withPrf g p = mapMaybe lp g where
   lp : a -> Maybe $ a `Subset` So . p
-  lp x with (@@@ p x)
-    _ | Element True prf = Just $ Element x $ eqToSo prf
-    _ | Element False _  = Nothing
+  lp x with (p x) proof prf
+    _ | True  = Just $ Element x $ eqToSo prf
+    _ | False = Nothing
 
 export infixl 4 `suchThat`
 
@@ -620,9 +617,9 @@ retryUntil_withPrf : (p : a -> Bool) -> (Fuel -> Gen em a) -> Fuel -> Gen0 $ a `
 retryUntil_withPrf p f Dry           = f Dry `suchThat_withPrf` p
 retryUntil_withPrf p f fl'@(More fl) = do
   x <- relax $ f fl'
-  case @@@ p x of
-    Element True prf => pure $ Element x $ eqToSo prf
-    Element False _  => retryUntil_withPrf p f fl
+  case @@ p x of
+    (True ** prf) => pure $ Element x $ eqToSo prf
+    (False ** _)  => retryUntil_withPrf p f fl
 
 ||| More elegant version of `suchThat` for fuelled generators.
 |||
