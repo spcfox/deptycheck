@@ -132,6 +132,9 @@ mapTaggedLazy = map . mapSnd . wrapLazy
 mapOneOf : GenAlternatives ne iem a -> (Gen iem a -> Gen em b) -> GenAlternatives ne em b
 mapOneOf oo f = MkGenAlts $ mapTaggedLazy f oo.unGenAlts
 
+mapMaybeTaggedLazy : (a -> Maybe b) -> LazyLst ne (Nat1, Lazy a) -> LazyLst0 (Nat1, Lazy b)
+mapMaybeTaggedLazy = mapMaybe . wrapMaybeTaggedLazy
+
 -----------------------------
 --- Emptiness tweakenings ---
 -----------------------------
@@ -165,6 +168,16 @@ mkOneOfMaybeEmpty : (xs : LazyLst altsNe (Nat1, Lazy (Gen alem a))) -> Gen0 a
 mkOneOfMaybeEmpty []        = Empty
 mkOneOfMaybeEmpty (x :: xs) = OneOf $ MkGenAlts $ x :: xs
 
+strengthen : Gen em a -> Maybe $ Gen em a
+strengthen Empty = Nothing
+strengthen g     = Just g
+
+namespace GenAlternatives
+
+  export %inline
+  strengthen : GenAlternatives ne em a -> Maybe $ GenAlternatives True em a
+  strengthen = map MkGenAlts . strengthen . unGenAlts
+
 mkOneOf : {em : _} ->
           (0 _ : alem `NoWeaker` em) =>
           (0 _ : AltsNonEmpty altsNe em) =>
@@ -172,11 +185,7 @@ mkOneOf : {em : _} ->
           Gen em a
 mkOneOf {em=NonEmpty} @{nw} @{NT} xs with 0 (nonEmptyIsMaximal nw)
   _ | Refl = OneOf $ MkGenAlts xs
--- TODO: filter has problem with laziness
--- mkOneOf {em=MaybeEmpty} xs = mkOneOfMaybeEmpty @{allMap {t=List} filterElem} $ filter (isNonEmpty . force . snd) xs
--- Not using mapSnd, because it's less reducible.
-mkOneOf {em=MaybeEmpty} xs = mkOneOfMaybeEmpty $
-  map (\x => (fst x, delay $ snd x)) $ filter (isNonEmpty . snd) $ map (\x => (fst x, force $ snd x)) xs
+mkOneOf {em=MaybeEmpty} xs = maybe Empty (\gs => OneOf $ MkGenAlts gs) $ strengthen $ mapMaybeTaggedLazy strengthen xs
 
 --------------------------
 --- Running generators ---
@@ -373,10 +382,6 @@ namespace GenAlternatives
   export %inline
   relax : GenAlternatives True em a -> GenAlternatives ne em a
   relax = MkGenAlts . relaxT . unGenAlts
-
-  export %inline
-  strengthen : GenAlternatives ne em a -> Maybe $ GenAlternatives True em a
-  strengthen = map MkGenAlts . strengthen . unGenAlts
 
   export
   Functor (GenAlternatives ne em) where
