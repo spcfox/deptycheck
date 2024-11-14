@@ -306,7 +306,8 @@ export
   Empty        >>= _  = Empty
   Pure x       >>= nf = nf x
   Raw g        >>= nf = Bind g nf
-  (OneOf oo >>= nf) {em=NonEmpty}   = OneOf $ mapOneOf oo $ assert_total (>>= nf) . relax
+  (OneOf @{nw} oo >>= nf) {em=NonEmpty} with 0 (nonEmptyIsMaximal nw)
+    _ | Refl = OneOf $ mapOneOf oo $ assert_total (>>= nf)
   (OneOf oo >>= nf) {em=MaybeEmpty} = mkOneOf $ flip mapTaggedLazy oo.unGenAlts $ assert_total (>>= nf) . relax
   Bind x f     >>= nf = Bind x $ assert_total (>>= nf) . relax . f
   Labelled l x >>= nf = label l $ x >>= nf
