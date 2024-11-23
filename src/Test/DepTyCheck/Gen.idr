@@ -119,7 +119,7 @@ label l g     = Labelled l g
 ------------------------------------------------
 
 mapTaggedLazy : Functor f => (a -> b) -> f (tag, Lazy a) -> f (tag, Lazy b)
-mapTaggedLazy = map . mapSnd . wrapLazy
+mapTaggedLazy f = map $ \x => (fst x, wrapLazy f $ snd x)
 
 mapOneOf : GenAlternatives ne iem a -> (Gen iem a -> Gen em b) -> GenAlternatives ne em b
 mapOneOf oo f = MkGenAlts $ mapTaggedLazy f oo.unGenAlts
