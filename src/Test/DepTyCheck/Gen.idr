@@ -478,7 +478,7 @@ export
   Pure x       >>= nf = nf x
   Raw g        >>= nf = Bind g nf
   (OneOf oo >>= nf) {em=MaybeEmpty} = maybe Empty (\xs => OneOf @{believe_me ()} $ MkGenAlts xs) $ strengthen
-    $ mapMaybeTaggedLazy strengthen $ mapTaggedLazy (assert_total (>>= nf) . relax) oo.unGenAlts
+    $ mapMaybeTaggedLazy (strengthen . assert_total (>>= nf) . relax) oo.unGenAlts
   OneOf oo     >>= nf = mkOneOf $ flip mapTaggedLazy oo.unGenAlts $ assert_total (>>= nf) . relax
   Bind x f     >>= nf = Bind x $ assert_total (>>= nf) . relax . f
   Labelled l x >>= nf = label l $ x >>= nf
