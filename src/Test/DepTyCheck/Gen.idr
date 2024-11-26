@@ -460,11 +460,25 @@ apNonEmpty with (decIsEmpty g) | (decIsEmpty h)
     _ | Left  _ = Oh
     _ | Right _ = Oh
 
+strengthen : Gen em a -> Maybe $ Gen em a
+strengthen Empty = Nothing
+strengthen g     = Just g
+
+mapMaybeTaggedLazy : (a -> Maybe b) -> LazyLst ne (Nat1, Lazy a) -> LazyLst0 (Nat1, Lazy b)
+mapMaybeTaggedLazy = mapMaybe . wrapMaybeTaggedLazy
+
+namespace GenAlternatives
+  export %inline
+  strengthen : GenAlternatives ne em a -> Maybe $ GenAlternatives True em a
+  strengthen = map MkGenAlts . strengthen . unGenAlts
+
 export
 {em : _} -> Monad (Gen em) where
   Empty        >>= _  = Empty
   Pure x       >>= nf = nf x
   Raw g        >>= nf = Bind g nf
+  (OneOf oo >>= nf) {em=MaybeEmpty} = maybe Empty (\xs => OneOf @{believe_me ()} $ MkGenAlts xs) $ strengthen
+    $ mapMaybeTaggedLazy strengthen $ mapTaggedLazy (assert_total (>>= nf) . relax) oo.unGenAlts
   OneOf oo     >>= nf = mkOneOf $ flip mapTaggedLazy oo.unGenAlts $ assert_total (>>= nf) . relax
   Bind x f     >>= nf = Bind x $ assert_total (>>= nf) . relax . f
   Labelled l x >>= nf = label l $ x >>= nf
@@ -529,10 +543,6 @@ namespace GenAlternatives
   export %inline
   relax : GenAlternatives True em a -> GenAlternatives ne em a
   relax = MkGenAlts . relaxT . unGenAlts
-
-  export %inline
-  strengthen : GenAlternatives ne em a -> Maybe $ GenAlternatives True em a
-  strengthen = map MkGenAlts . strengthen . unGenAlts
 
   export
   Functor (GenAlternatives ne em) where
