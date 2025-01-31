@@ -242,7 +242,7 @@ callCon con = reAppAny (var con.name) . toList . mapI (appArg . index' con.args)
 
 export
 outmostFuelArg : Name
-outmostFuelArg = UN $ Basic "^outmost-fuel^" -- I'm using a name containing chars that cannot be present in the code parsed from the Idris frontend
+outmostFuelArg = "^outmost-fuel^" -- I'm using a name containing chars that cannot be present in the code parsed from the Idris frontend
 
 ||| Returns unnamespaced name and list of all namespaces stored in direct order
 |||
@@ -271,8 +271,11 @@ isNamespaced = not . null . fst . unNS
 --- Working around primitive and special values ---
 ---------------------------------------------------
 
+primNS : Namespace
+primNS = MkNS ["^prim^"]
+
 primTypeInfo : String -> TypeInfo
-primTypeInfo s = MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic s) [] []
+primTypeInfo s = MkTypeInfo (NS primNS $ UN $ Basic s) [] []
 
 export
 typeInfoForPrimType : PrimType -> TypeInfo
@@ -297,21 +300,21 @@ typeInfoForTypeOfTypes = primTypeInfo "Type"
 
 export
 extractTargetTyExpr : TypeInfo -> TTImp
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Int"    ) [] [] = primVal $ PrT IntType
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Integer") [] [] = primVal $ PrT IntegerType
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Int8"   ) [] [] = primVal $ PrT Int8Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Int16"  ) [] [] = primVal $ PrT Int16Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Int32"  ) [] [] = primVal $ PrT Int32Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Int64"  ) [] [] = primVal $ PrT Int64Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Bits8"  ) [] [] = primVal $ PrT Bits8Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Bits16" ) [] [] = primVal $ PrT Bits16Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Bits32" ) [] [] = primVal $ PrT Bits32Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Bits64" ) [] [] = primVal $ PrT Bits64Type
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "String" ) [] [] = primVal $ PrT StringType
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Char"   ) [] [] = primVal $ PrT CharType
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Double" ) [] [] = primVal $ PrT DoubleType
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "%World" ) [] [] = primVal $ PrT WorldType
-extractTargetTyExpr $ MkTypeInfo (NS (MkNS ["^prim^"]) $ UN $ Basic "Type"   ) [] [] = type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Int"    ) [] [] = primVal $ PrT IntType
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Integer") [] [] = primVal $ PrT IntegerType
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Int8"   ) [] [] = primVal $ PrT Int8Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Int16"  ) [] [] = primVal $ PrT Int16Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Int32"  ) [] [] = primVal $ PrT Int32Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Int64"  ) [] [] = primVal $ PrT Int64Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Bits8"  ) [] [] = primVal $ PrT Bits8Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Bits16" ) [] [] = primVal $ PrT Bits16Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Bits32" ) [] [] = primVal $ PrT Bits32Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Bits64" ) [] [] = primVal $ PrT Bits64Type
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "String" ) [] [] = primVal $ PrT StringType
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Char"   ) [] [] = primVal $ PrT CharType
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Double" ) [] [] = primVal $ PrT DoubleType
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "%World" ) [] [] = primVal $ PrT WorldType
+extractTargetTyExpr $ MkTypeInfo (NS primNS $ UN $ Basic "Type"   ) [] [] = type
 extractTargetTyExpr ti = var ti.name
 
 ||| Returns a type constructor as `Con` by given type
@@ -708,3 +711,7 @@ itIsConstructor = do
     | (lhs, _) => fail "Can't get type name: \{show lhs}"
   ty <- getInfo' ty
   pure (ItIsCon ty con ** ItIsGenuine)
+
+export
+genPrettyName : Elaboration m => String -> m Name
+genPrettyName s = DN s <$> genSym s

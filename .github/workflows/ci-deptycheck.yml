@@ -4,11 +4,9 @@ name: DepTyCheck
 on:
   push:
     branches:
-      - main
-      - master
-      - 'debug-ci/**'
+      - '*'
     tags:
-      - '**'
+      - '*'
   pull_request:
     branches:
       - main

@@ -1,3 +1,23 @@
+####################
+### Custom Idris ###
+####################
+
+[idris2]
+url = "https://github.com/spcfox/Idris2"
+commit = "fetch-latest:bindvar-name"
+
+[custom.all.elab-util]
+type = "git"
+url = "https://github.com/spcfox/idris2-elab-util"
+commit = "fetch-latest:bindvar-name"
+ipkg = "elab-util.ipkg"
+
+[custom.all.elab-pretty]
+type = "git"
+url = "https://github.com/spcfox/idris2-elab-util"
+commit = "fetch-latest:bindvar-name"
+ipkg = "elab-pretty.ipkg"
+
 ################
 ### Settings ###
 ################

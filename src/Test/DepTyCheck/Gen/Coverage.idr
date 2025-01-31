@@ -113,9 +113,9 @@ withCoverage gen = do
   tyInfo <- getInfo' tyName
   let matchDPair = \expr => foldr (\_, r => var "Builtin.DPair.MkDPair" .$ implicitTrue .$ r) expr dpairLefts
   let tyLabelStr = "\{show tyName}[?]"
-  let labelledValName = UN $ Basic "^val^"
-  let labellingFunName = UN $ Basic "^labelling^"
-  let undpairedVal = "^undpaired^"
+  labelledValName <- genPrettyName "^val^"
+  labellingFunName <- genPrettyName "^labelling^"
+  undpairedVal <- genPrettyName "^undpaired^"
   let consLabellingFun = deriveMatchingCons
                            `(Test.DepTyCheck.Gen.Labels.Label)
                            (\con => var "fromString" .$ primVal (Str $ "\{show con.name} (user-defined)"))
@@ -126,7 +126,7 @@ withCoverage gen = do
                      ~(iCase (var labelledValName) implicitTrue $ pure $
                        patClause
                          (matchDPair $ bindVar undpairedVal)
-                         (var labellingFunName .$ varStr undpairedVal))
+                         (var labellingFunName .$ var undpairedVal))
                      (pure ~(var labelledValName)))
   pure $ label (fromString tyLabelStr) $ gen >>= labeller
 
