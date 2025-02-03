@@ -129,7 +129,7 @@ LOG deptycheck.derive.print:5: type: (arg : Fuel) -> (xs : X) -> (ys : X) -> Gen
                                   .$ (var "fromString" .$ primVal (Str "DerivedGen.B (orders)"))
                                   .$ (   var ">>="
                                       .$ (var "<DerivedGen.Y>[0, 1]" .$ var "^cons_fuel^" .$ var "xs" .$ var "ys")
-                                      .$ (    MkArg MW ExplicitArg (Just "^bnd^{arg:1}") implicitFalse
+                                      .$ (    MkArg MW ExplicitArg (Just "{arg:1}") implicitFalse
                                           .=>    var "Prelude.pure"
                                               .! ("f", var "Test.DepTyCheck.Gen.Gen" .$ implicitTrue)
                                               .$ (   var "DerivedGen.B"
@@ -137,7 +137,7 @@ LOG deptycheck.derive.print:5: type: (arg : Fuel) -> (xs : X) -> (ys : X) -> Gen
                                                   .! ("y", var "y")
                                                   .! ("ys", implicitTrue)
                                                   .! ("xs", implicitTrue)
-                                                  .$ var "^bnd^{arg:1}")))
+                                                  .$ var "{arg:1}")))
                              , var "<<DerivedGen.B>>" .$ implicitTrue .$ implicitTrue .$ implicitTrue .= var "empty"
                              ]
                          ]

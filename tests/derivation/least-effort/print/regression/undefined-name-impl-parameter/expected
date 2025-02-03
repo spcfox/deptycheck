@@ -86,7 +86,7 @@
                                                 { sc = var "{lamc:0}"
                                                 , ty = implicitFalse
                                                 , clauses =
-                                                    [    var "Builtin.DPair.MkDPair" .$ bindVar "idx" .$ bindVar "^bnd^{conArg:1}"
+                                                    [    var "Builtin.DPair.MkDPair" .$ bindVar "idx" .$ bindVar "{conArg:1}"
                                                       .=    var "Prelude.pure"
                                                          .! ("f", var "Test.DepTyCheck.Gen.Gen" .$ implicitTrue)
                                                          .$ (   var "Decls.Read"
@@ -94,7 +94,7 @@
                                                              .! ("regs", implicitTrue)
                                                              .! ("t", implicitTrue)
                                                              .$ implicitTrue
-                                                             .@ var "^bnd^{conArg:1}")
+                                                             .@ var "{conArg:1}")
                                                     ]
                                                 }))
                              ]
@@ -172,7 +172,7 @@
                                  { lhs =
                                         var "<<Decls.Here>>"
                                      .$ bindVar "^cons_fuel^"
-                                     .$ (var "Prelude.Types.S" .$ bindVar "^bnd^{n:3955}")
+                                     .$ (var "Prelude.Types.S" .$ bindVar "{n:3955}")
                                      .$ bindVar "t"
                                      .$ (var "Decls.(::)" .! ("n", implicitTrue) .$ (var "Decls.Just" .$ bindVar "to_be_deceqed^^t0") .$ bindVar "rest")
                                  , rig = MW
@@ -182,7 +182,7 @@
                                  , clauses =
                                      [       var "<<Decls.Here>>"
                                           .$ bindVar "^cons_fuel^"
-                                          .$ (var "Prelude.Types.S" .$ bindVar "^bnd^{n:3955}")
+                                          .$ (var "Prelude.Types.S" .$ bindVar "{n:3955}")
                                           .$ bindVar "t"
                                           .$ (var "Decls.(::)" .! ("n", implicitTrue) .$ (var "Decls.Just" .$ bindVar "t") .$ bindVar "rest")
                                           .$ (var "Prelude.Yes" .$ var "Builtin.Refl")
@@ -195,7 +195,7 @@
                                                   .$ (var "Decls.Here" .! ("{n:3955}", implicitTrue) .! ("rest", var "rest") .! ("t", var "t"))))
                                      ,       var "<<Decls.Here>>"
                                           .$ bindVar "^cons_fuel^"
-                                          .$ (var "Prelude.Types.S" .$ bindVar "^bnd^{n:3955}")
+                                          .$ (var "Prelude.Types.S" .$ bindVar "{n:3955}")
                                           .$ bindVar "t"
                                           .$ (   var "Decls.(::)"
                                               .! ("n", implicitTrue)
@@ -212,19 +212,19 @@
                              "<<Decls.There>>"
                              [       var "<<Decls.There>>"
                                   .$ bindVar "^cons_fuel^"
-                                  .$ (var "Prelude.Types.S" .$ bindVar "^bnd^{r:3967}")
+                                  .$ (var "Prelude.Types.S" .$ bindVar "{r:3967}")
                                   .$ bindVar "t"
                                   .$ (var "Decls.(::)" .! ("n", implicitTrue) .$ bindVar "reg" .$ bindVar "rest")
                                .=    var "Test.DepTyCheck.Gen.label"
                                   .$ (var "fromString" .$ primVal (Str "Decls.There (orders)"))
                                   .$ (   var ">>="
-                                      .$ (var "<Decls.RegIsType>[0, 2, 3]" .$ var "^cons_fuel^" .$ var "^bnd^{r:3967}" .$ var "t" .$ var "rest")
+                                      .$ (var "<Decls.RegIsType>[0, 2, 3]" .$ var "^cons_fuel^" .$ var "{r:3967}" .$ var "t" .$ var "rest")
                                       .$ (    MkArg MW ExplicitArg (Just "{lamc:0}") implicitFalse
                                           .=> iCase
                                                 { sc = var "{lamc:0}"
                                                 , ty = implicitFalse
                                                 , clauses =
-                                                    [    var "Builtin.DPair.MkDPair" .$ bindVar "i" .$ bindVar "^bnd^{arg:6}"
+                                                    [    var "Builtin.DPair.MkDPair" .$ bindVar "i" .$ bindVar "{arg:6}"
                                                       .=    var "Prelude.pure"
                                                          .! ("f", var "Test.DepTyCheck.Gen.Gen" .$ implicitTrue)
                                                          .$ (   var "Builtin.DPair.MkDPair"
@@ -235,7 +235,7 @@
                                                                  .! ("rest", implicitTrue)
                                                                  .! ("t", implicitTrue)
                                                                  .! ("i", implicitTrue)
-                                                                 .$ var "^bnd^{arg:6}"))
+                                                                 .$ var "{arg:6}"))
                                                     ]
                                                 }))
                              , var "<<Decls.There>>" .$ implicitTrue .$ implicitTrue .$ implicitTrue .$ implicitTrue .= var "empty"
