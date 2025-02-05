@@ -262,6 +262,13 @@ namespace OneOf
   altsNonEmptyTrue {em=NonEmpty}   = NT
   altsNonEmptyTrue {em=MaybeEmpty} = Sx
 
+strengthen : Gen em a -> Maybe $ Gen em a
+strengthen Empty = Nothing
+strengthen g     = Just g
+
+mapMaybeTaggedLazy : (a -> Maybe b) -> LazyLst ne (Nat1, Lazy a) -> LazyLst0 (Nat1, Lazy b)
+mapMaybeTaggedLazy = mapMaybe . wrapMaybeTaggedLazy
+
 mkOneOfMaybeEmpty : (xs : LazyLst altsNe (Nat1, Lazy (Gen alem a))) ->
                     (0 _ : All IsNonEmpty $ unpackTaggedLazy xs) =>
                     Gen0 a
@@ -275,11 +282,8 @@ mkOneOf : {em : _} ->
           Gen em a
 mkOneOf {em=NonEmpty} @{nw} @{NT} xs with 0 (nonEmptyIsMaximal nw)
   _ | Refl = OneOf @{allTrue isNonEmptyGen1} $ MkGenAlts xs
--- TODO: filter has problem with laziness
--- mkOneOf {em=MaybeEmpty} xs = mkOneOfMaybeEmpty @{allMap {t=List} filterElem} $ filter (isNonEmpty . force . snd) xs
--- Not using mapSnd, because it's less reducible.
-mkOneOf {em=MaybeEmpty} xs = mkOneOfMaybeEmpty @{allMap {t=List} $ allMap {t=LazyLst False} $ filterElem} $
-  map (\x => (fst x, delay $ snd x)) $ filter (isNonEmpty . snd) $ map (\x => (fst x, force $ snd x)) xs
+mkOneOf {em=MaybeEmpty} xs = maybe Empty (\ys => OneOf @{believe_me ()} $ MkGenAlts ys) $ strengthen $
+  mapMaybeTaggedLazy strengthen xs
 
 --------------------------
 --- Running generators ---
@@ -459,13 +463,6 @@ apNonEmpty with (decIsEmpty g) | (decIsEmpty h)
   apNonEmpty {g=Bind {biem=bl} _ _} {h=Bind {biem=br} _ _} | _   | Element False _ with (order {rel=NoWeaker} bl br)
     _ | Left  _ = Oh
     _ | Right _ = Oh
-
-strengthen : Gen em a -> Maybe $ Gen em a
-strengthen Empty = Nothing
-strengthen g     = Just g
-
-mapMaybeTaggedLazy : (a -> Maybe b) -> LazyLst ne (Nat1, Lazy a) -> LazyLst0 (Nat1, Lazy b)
-mapMaybeTaggedLazy = mapMaybe . wrapMaybeTaggedLazy
 
 namespace GenAlternatives
   export %inline
