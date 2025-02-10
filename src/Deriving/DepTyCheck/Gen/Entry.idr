@@ -131,23 +131,6 @@ checkTypeIsGen checkSide sig = do
   -- check that target type has all unnamed arguments resolved with machine-generated names
   _ <- ensureTyArgsNamed targetType
 
-  --------------------------------------------------
-  -- Target type family's arguments' first checks --
-  --------------------------------------------------
-
-  -- check all the arguments of the target type are variable names, not complex expressions
-  targetTypeArgs <- for targetTypeArgs $ \case
-    IVar _ (UN argName) => pure argName
-    nonVarArg => failAt (getFC nonVarArg) "Target type's argument must be a variable name"
-
-  -- check that all arguments names are unique
-  let [] = findDiffPairWhich (==) targetTypeArgs
-    | _ :: _ => failAt targetTypeFC "All arguments of the target type must be different"
-
-  -- check the given type info corresponds to the given type application, and convert a `List` to an appropriate `Vect`
-  let Yes targetTypeArgsLengthCorrect = targetType.tyArgs.length `decEq` targetTypeArgs.length
-    | No _ => fail "INTERNAL ERROR: unequal argument lists lengths: \{show targetTypeArgs.length} and \{show targetType.args.length}"
-
   ------------------------------------------------------------
   -- Parse `Reflect` structures to what's needed to further --
   ------------------------------------------------------------
@@ -158,24 +141,42 @@ checkTypeIsGen checkSide sig = do
     _                                     => failAt (getFC sigResult) "Argument of dependent pair under the resulting `Gen` must be named"
 
   -- check that all arguments are omega, not erased or linear; and that all arguments are properly named
-  (givenParams, autoImplArgs, givenParamsPositions) <- do
-    let
-      classifyArg : forall m. Elaboration m =>
-                    Arg -> m $ Either (ArgExplicitness, UserName, TTImp) TTImp
-      classifyArg $ MkArg MW ImplicitArg (Just $ UN name) type = pure $ Left (Checked.ImplicitArg, name, type)
-      classifyArg $ MkArg MW ExplicitArg (Just $ UN name) type = pure $ Left (Checked.ExplicitArg, name, type)
-      classifyArg $ MkArg MW AutoImplicit (Just $ MN _ _) type = pure $ Right type
-      classifyArg $ MkArg MW AutoImplicit Nothing         type = pure $ Right type
+  (givenParams, autoImplArgs, givenParamsPositions) <- map partitionEithersPos $ Prelude.for sigArgs.asVect $ \case
+    MkArg MW ImplicitArg (Just $ UN name) type => pure $ Left (Checked.ImplicitArg, name, type)
+    MkArg MW ExplicitArg (Just $ UN name) type => pure $ Left (Checked.ExplicitArg, name, type)
+    MkArg MW AutoImplicit (Just $ MN _ _) type => pure $ Right type
+    MkArg MW AutoImplicit Nothing         type => pure $ Right type
 
-      classifyArg $ MkArg MW ImplicitArg     _ ty = failAt (getFC ty) "Implicit argument must be named and must not shadow any other name"
-      classifyArg $ MkArg MW ExplicitArg     _ ty = failAt (getFC ty) "Explicit argument must be named and must not shadow any other name"
-      classifyArg $ MkArg MW AutoImplicit    _ ty = failAt (getFC ty) "Auto-implicit argument must be unnamed"
+    MkArg MW ImplicitArg     _ ty => failAt (getFC ty) "Implicit argument must be named and must not shadow any other name"
+    MkArg MW ExplicitArg     _ ty => failAt (getFC ty) "Explicit argument must be named and must not shadow any other name"
+    MkArg MW AutoImplicit    _ ty => failAt (getFC ty) "Auto-implicit argument must be unnamed"
 
-      classifyArg $ MkArg M0 _               _ ty = failAt (getFC ty) "Erased arguments are not supported in generator function signatures"
-      classifyArg $ MkArg M1 _               _ ty = failAt (getFC ty) "Linear arguments are not supported in generator function signatures"
-      classifyArg $ MkArg MW (DefImplicit _) _ ty = failAt (getFC ty) "Default implicit arguments are not supported in generator function signatures"
+    MkArg M0 _               _ ty => failAt (getFC ty) "Erased arguments are not supported in generator function signatures"
+    MkArg M1 _               _ ty => failAt (getFC ty) "Linear arguments are not supported in generator function signatures"
+    MkArg MW (DefImplicit _) _ ty => failAt (getFC ty) "Default implicit arguments are not supported in generator function signatures"
 
-    map partitionEithersPos $ for sigArgs.asVect classifyArg
+  --------------------------------------------------
+  -- Target type family's arguments' first checks --
+  --------------------------------------------------
+
+  -- check all the arguments of the target type are correct variable names, not complex expressions
+  targetTypeArgs <- do
+    let inGivenOrGenerated : UserName -> Bool
+        inGivenOrGenerated n = any (\(_, n', _) => n == n') givenParams || any (\(n', _) => n == n') paramsToBeGenerated
+    let err : Name -> String -> String
+        err n suffix = "Name `\{show n}` is used in target's type, but is not a generated or given parameter (goes after the fuel argument); \{suffix}"
+    for targetTypeArgs $ \case
+      IVar fc un@(UN argName) => if inGivenOrGenerated argName then pure argName else failAt fc $ err un "did you forget to add one?"
+      IVar fc mn@(MN {}) => failAt fc $ err mn "looks like it is an implicit parameter of some underdeclared type; specify types with more precision"
+      nonVarArg => failAt (getFC nonVarArg) "Target type's argument must be a variable name, got `\{show nonVarArg}`"
+
+  -- check that all arguments names are unique
+  let [] = findDiffPairWhich (==) targetTypeArgs
+    | _ :: _ => failAt targetTypeFC "All arguments of the target type must be different"
+
+  -- check the given type info corresponds to the given type application, and convert a `List` to an appropriate `Vect`
+  let Yes targetTypeArgsLengthCorrect = targetType.tyArgs.length `decEq` targetTypeArgs.length
+    | No _ => fail "INTERNAL ERROR: unequal argument lists lengths: \{show targetTypeArgs.length} and \{show targetType.args.length}"
 
   ----------------------------------------------------------------------
   -- Check that generated and given parameter lists are actually sets --
@@ -198,7 +199,7 @@ checkTypeIsGen checkSide sig = do
     Just found => pure (ty, rewrite targetTypeArgsLengthCorrect in found)
     Nothing => failAt (getFC ty) "Generated parameter is not used in the target type"
 
-  -- check that all target type's parameters classied as "given" are present in the given params list
+  -- check that all target type's parameters classified as "given" are present in the given params list
   givenParams <- for {b=(_, Fin targetType.args.length, _)} givenParams $ \(explicitness, name, ty) => case findIndex (== name) targetTypeArgs of
     Just found => pure (ty, rewrite targetTypeArgsLengthCorrect in found, explicitness, UN name)
     Nothing => failAt (getFC ty) "Given parameter is not used in the target type"
