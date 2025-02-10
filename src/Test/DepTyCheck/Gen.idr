@@ -245,6 +245,8 @@ relax $ OneOf @{ne} @{nw} x = OneOf @{ne} @{transitive' nw %search} x
 relax $ Bind @{nw} x f      = Bind @{transitive' nw %search} x f
 relax $ Labelled l x        = Labelled @{relaxNonEmpty} l $ relax x
 
+%transform "relax/id" Gen.relax g = believe_me g
+
 relaxNonEmpty {g=Pure _}       = Oh
 relaxNonEmpty {g=Raw _}        = Oh
 relaxNonEmpty {g=OneOf _}      = Oh
