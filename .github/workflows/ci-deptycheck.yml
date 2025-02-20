@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
   schedule:
     # We want to run in the beginning of the day, right after the `pack` collection is built at the end of the previous day.
-    - cron: '0 1 * * *'
+    - cron: '0/15 * * * *'
 
 permissions: read-all
 
