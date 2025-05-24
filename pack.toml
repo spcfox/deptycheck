@@ -1,3 +1,18 @@
+[idris2]
+commit = "767546a1ee74b30af46980ee0203e2b48efb1e41"
+
+[custom.all.elab-util]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-elab-util"
+commit = "aa33af1c292a6587f837a0611f06ade8a15241ca"
+ipkg   = "elab-util.ipkg"
+
+[custom.all.elab-pretty]
+type   = "git"
+url    = "https://github.com/stefan-hoeck/idris2-elab-util"
+commit = "aa33af1c292a6587f837a0611f06ade8a15241ca"
+ipkg   = "elab-pretty.ipkg"
+
 ################
 ### Settings ###
 ################
