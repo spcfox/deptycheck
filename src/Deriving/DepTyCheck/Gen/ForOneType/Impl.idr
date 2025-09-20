@@ -7,7 +7,7 @@ import public Deriving.DepTyCheck.Gen.Labels
 import public Deriving.DepTyCheck.Gen.ForOneTypeCon.Impl
 import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 
-%default total
+-- %default total
 
 ------------------------------------
 --- Expressions generation utils ---

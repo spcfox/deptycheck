@@ -2,7 +2,7 @@ module Deriving.DepTyCheck.Util.Primitives
 
 import public Language.Reflection.Compat
 
-%default total
+-- %default total
 
 ---------------------------------------------------
 --- Working around primitive and special values ---

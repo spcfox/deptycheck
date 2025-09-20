@@ -16,7 +16,7 @@ import Language.Reflection.Logging
 import public Language.Reflection.Syntax
 import public Language.Reflection.Syntax.Ops
 
-%default total
+-- %default total
 
 --------------------------------------------------------------------------------
 --          General Types

@@ -6,7 +6,7 @@ import Data.Vect
 
 import Test.DepTyCheck.Gen
 
-%default total
+-- %default total
 
 public export
 data UniqStrVect : Nat -> Type

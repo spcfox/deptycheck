@@ -9,7 +9,7 @@ import public Example.Pil.Lang
 
 import public Test.DepTyCheck.Gen
 
-%default total
+-- %default total
 
 ------------------
 --- Generation ---

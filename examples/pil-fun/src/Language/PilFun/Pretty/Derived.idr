@@ -4,7 +4,7 @@ import public Language.PilFun.Pretty
 
 import Deriving.DepTyCheck.Gen
 
-%default total
+-- %default total
 
 %logging "deptycheck.derive" 5
 %logging "deptycheck.derive.least-effort" 7

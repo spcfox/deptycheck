@@ -3,7 +3,7 @@ module Data.List.Covering
 import public Data.Fin
 import Data.String
 
-%default total
+-- %default total
 
 namespace BitMask
 

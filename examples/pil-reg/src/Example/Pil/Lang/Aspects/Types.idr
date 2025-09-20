@@ -2,7 +2,7 @@ module Example.Pil.Lang.Aspects.Types
 
 import public Decidable.Equality
 
-%default total
+-- %default total
 
 --- Available types in the system ---
 

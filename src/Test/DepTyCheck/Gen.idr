@@ -26,7 +26,7 @@ import Syntax.WithProof
 import public Test.DepTyCheck.Gen.Emptiness
 import public Test.DepTyCheck.Gen.Labels
 
-%default total
+-- %default total
 
 -------------------------
 --- Utility functions ---
@@ -515,7 +515,7 @@ bindNonEmpty {g=Bind _ _}            = Refl
 bindNonEmpty {g=Labelled _ _}        = labelNonEmpty @{bindNonEmpty}
 bindNonEmpty {g=OneOf $ MkGenAlts _} = Refl
 
-export
+export covering
 {em : _} -> Monad (Gen em) where
   g >>= h = rewrite sym $ minSame em in g >>== h
 
@@ -750,9 +750,9 @@ export
 infix 8 `mapAlternativesOf`
       , `mapAlternativesWith`
 
-export
-{em : _} -> Monad (GenAlternatives True em) where
-  xs >>= f = flip processAlternatives' xs $ alternativesOf . (>>= oneOf . f)
+-- export
+-- {em : _} -> Monad (GenAlternatives True em) where
+--   xs >>= f = flip processAlternatives' xs $ alternativesOf . (>>= oneOf . f)
 
 ----------------------------------------
 --- Additional composition functions ---

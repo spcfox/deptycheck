@@ -13,7 +13,7 @@ import public Language.Reflection.Syntax.Ops
 import public Syntax.IHateParens.List
 import public Syntax.IHateParens.Vect
 
-%default total
+-- %default total
 
 --------------------------------
 --- Permutation of arguments ---

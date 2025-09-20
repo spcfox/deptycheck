@@ -15,7 +15,7 @@ import public Language.Reflection.Compat
 import public Language.Reflection.Expr
 import public Language.Reflection.Logging
 
-%default total
+-- %default total
 
 ------------------------------------------------------------
 --- Simplest `Gen` signature, user for internal requests ---

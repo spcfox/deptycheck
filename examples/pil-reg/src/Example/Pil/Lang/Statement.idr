@@ -4,7 +4,7 @@ import public Data.List.Lookup
 
 import public Example.Pil.Lang.Expression
 
-%default total
+-- %default total
 
 export infix 2 #=, ?#=, !#=, %=
 

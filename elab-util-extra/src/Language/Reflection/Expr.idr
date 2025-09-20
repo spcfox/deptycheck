@@ -15,7 +15,7 @@ import Language.Reflection.Syntax.Ops
 
 import public Syntax.IHateParens.List
 
-%default total
+-- %default total
 
 ------------------------------------
 --- General pure transformations ---

@@ -6,7 +6,7 @@ import Data.Maybe
 import public Example.Pil.Lang.Aspects.Variables
 import public Example.Pil.Lang.Aspects.Registers
 
-%default total
+-- %default total
 
 public export
 data Expression : (vars : Variables) -> (regs : Registers rc) -> (res : Type') -> Type where

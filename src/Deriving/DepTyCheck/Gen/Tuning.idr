@@ -6,7 +6,7 @@ import public Language.Reflection.Compat.Constr
 
 import public Syntax.IHateParens.List
 
-%default total
+-- %default total
 
 ------------------------------------------
 --- Facilities for manual order tuning ---

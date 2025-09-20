@@ -8,7 +8,7 @@ import public Language.Reflection.Expr
 
 import public Syntax.IHateParens.SortedSet
 
-%default total
+-- %default total
 
 ||| Returns a type constructor as `Con` by given type
 typeCon : TypeInfo -> Con

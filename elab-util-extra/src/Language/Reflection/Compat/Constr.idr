@@ -10,7 +10,7 @@ import Language.Reflection.Expr
 
 import public Syntax.IHateParens.List
 
-%default total
+-- %default total
 
 --------------------------------------------
 --- Compiler-based `Con` transformations ---

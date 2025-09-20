@@ -13,7 +13,7 @@ import Test.DepTyCheck.Gen
 
 import public Text.PrettyPrint.Bernardy
 
-%default total
+-- %default total
 
 luaNamesGen : Gen0 String
 luaNamesGen = pack <$> listOf {length = choose (1,10)} (choose ('a', 'z'))

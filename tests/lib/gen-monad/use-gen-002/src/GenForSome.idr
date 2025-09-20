@@ -8,7 +8,7 @@ import Data.So
 
 import Test.DepTyCheck.Gen
 
-%default total
+-- %default total
 
 public export
 Name : Type

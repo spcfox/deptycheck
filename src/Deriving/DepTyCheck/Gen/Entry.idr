@@ -1,16 +1,14 @@
 ||| Derivation interface for an end-point user
-module Deriving.DepTyCheck.Gen
+module Deriving.DepTyCheck.Gen.Entry
 
 import public Data.Fuel
-import public Data.List.Lazy
 
-import public Deriving.DepTyCheck.Gen.ForAllNeededTypes.Impl
-import public Deriving.DepTyCheck.Gen.ForOneTypeConRhs.Impl
-import public Deriving.DepTyCheck.Gen.ForOneType.Impl
+import public Decidable.Equality
+
+import public Deriving.DepTyCheck.Gen.Checked
+import public Deriving.DepTyCheck.Gen.Core
 
 import public Test.DepTyCheck.Gen -- for `Gen` data type
-
-import public Language.Reflection.Expr.Interpolation -- for `deriveGenPrinter`
 
 -- %default total
 
@@ -55,21 +53,14 @@ CheckResult ExternalGen    = (GenSignatureFC, ExternalGenSignature)
 
 --- Analysis functions ---
 
-mapAndPerm : Ord a => List (a, b) -> Maybe (xs : SortedMap a b ** Vect xs.size $ Fin xs.size)
-mapAndPerm xs = do
-  let idxs = fst <$> xs
-  let m = SortedMap.fromList xs
-  let Yes lenCorr = m.size `decEq` idxs.length | No _ => Nothing
-  pure (m ** rewrite lenCorr in orderIndices idxs)
-
 checkTypeIsGen : (checkSide : GenCheckSide) -> TTImp -> Elab $ CheckResult checkSide
-checkTypeIsGen checkSide origsig@sig = do
+checkTypeIsGen checkSide sig = do
 
-  -- check the given expression is a type, and normalise it
-  sig <- normaliseAsType sig
+  -- check the given expression is a type
+  _ <- check {expected=Type} sig
 
   -- treat the given type expression as a (possibly 0-ary) function type
-  let (sigArgs, sigResult) = unPi sig
+  (sigArgs, sigResult) <- unPiNamed sig
 
   -----------------------------------------
   -- First checks in the given arguments --
@@ -80,7 +71,7 @@ checkTypeIsGen checkSide origsig@sig = do
     | [] => failAt (getFC sig) "No arguments in the generator function signature, at least a fuel argument must be present"
 
   -- check that the first argument an explicit unnamed one
-  let MkArg MW ExplicitArg (Just (MN _ _)) (IVar firstArgFC firstArgTypeName) = firstArg
+  let MkArg MW ExplicitArg (MN _ _) (IVar firstArgFC firstArgTypeName) = firstArg
     | _ => failAt (getFC firstArg.type) "The first argument must be explicit, unnamed, present at runtime and of type `Fuel`"
 
   -- check the type of the fuel argument
@@ -99,7 +90,7 @@ checkTypeIsGen checkSide origsig@sig = do
     failAt (getFC sigResult) "The result type of the generator function must be of type \"`Gen MaybeEmpty` of desired result\""
 
   unless (genEmptiness `nameConformsTo` `{Test.DepTyCheck.Gen.Emptiness.MaybeEmpty}) $
-    failAt genFC "Only `MaybeEmpty` variant of generator is supported, `\{show genEmptiness}` is given"
+    failAt genFC "Only `GenBeEmptyStatic` variant of generator is supported, `\{show genEmptiness}` is given"
     -- this check can be changed to `==` as soon as we gen the result type normalised properly.
 
   -- treat the generated type as a dependent pair
@@ -113,7 +104,11 @@ checkTypeIsGen checkSide origsig@sig = do
   let (targetType, targetTypeArgs) = unAppAny targetType
 
   -- check out applications types
-  let targetTypeArgs = targetTypeArgs <&> getExpr
+  targetTypeArgs <- for targetTypeArgs $ \case
+    PosApp     arg => pure arg
+    NamedApp n arg => failAt targetTypeFC "Target types with implicit type parameters are not supported yet"
+    AutoApp    arg => failAt targetTypeFC "Target types with `auto` implicit type parameters are not supported yet"
+    WithApp    arg => failAt targetTypeFC "Unexpected `with`-application in the target type"
 
   ------------------------------------------
   -- Working with the target type familly --
@@ -133,8 +128,22 @@ checkTypeIsGen checkSide origsig@sig = do
 
     _ => failAt targetTypeFC "Target type is not a simple name"
 
-  -- check that target type has all unnamed arguments resolved with machine-generated names
-  _ <- ensureTyArgsNamed targetType
+  --------------------------------------------------
+  -- Target type family's arguments' first checks --
+  --------------------------------------------------
+
+  -- check all the arguments of the target type are variable names, not complex expressions
+  targetTypeArgs <- for targetTypeArgs $ \case
+    IVar _ (UN argName) => pure argName
+    nonVarArg => failAt (getFC nonVarArg) "Target type's argument must be a variable name"
+
+  -- check that all arguments names are unique
+  let [] = findDiffPairWhich (==) targetTypeArgs
+    | _ :: _ => failAt targetTypeFC "All arguments of the target type must be different"
+
+  -- check the given type info corresponds to the given type application, and convert a `List` to an appropriate `Vect`
+  let Yes targetTypeArgsLengthCorrect = targetType.args.length `decEq` targetTypeArgs.length
+    | No _ => fail "INTERNAL ERROR: unequal argument lists lengths: \{show targetTypeArgs.length} and \{show targetType.args.length}"
 
   ------------------------------------------------------------
   -- Parse `Reflect` structures to what's needed to further --
@@ -143,46 +152,26 @@ checkTypeIsGen checkSide origsig@sig = do
   -- check that all parameters of `DPair` are as expected
   paramsToBeGenerated <- for paramsToBeGenerated $ \case
     MkArg MW ExplicitArg (Just $ UN nm) t => pure (nm, t)
-    MkArg MW ExplicitArg (Just $ MN {}) t => failAt (getFC t) "Argument of dependent pair under the resulting `Gen` seems to be repeated or badly typed"
-    MkArg _  _           _              t => failAt (getFC t) "Argument of dependent pair under the resulting `Gen` must be named"
+    _                                     => failAt (getFC sigResult) "Argument of dependent pair under the resulting `Gen` must be named"
 
   -- check that all arguments are omega, not erased or linear; and that all arguments are properly named
-  (givenParams, autoImplArgs, givenParamsPositions) <- map partitionEithersPos $ Prelude.for sigArgs.asVect $ \case
-    MkArg MW ImplicitArg (Just $ UN name) type => pure $ Left (Signature.ImplicitArg, name, type)
-    MkArg MW ExplicitArg (Just $ UN name) type => pure $ Left (Signature.ExplicitArg, name, type)
-    MkArg MW AutoImplicit (Just $ MN _ _) type => pure $ Right type
-    MkArg MW AutoImplicit Nothing         type => pure $ Right type
+  (givenParams, autoImplArgs, givenParamsPositions) <- do
+    let
+      classifyArg : forall m. Elaboration m =>
+                    NamedArg -> m $ Either (ArgExplicitness, UserName, TTImp) TTImp
+      classifyArg $ MkArg MW ImplicitArg (UN name) type = pure $ Left (Checked.ImplicitArg, name, type)
+      classifyArg $ MkArg MW ExplicitArg (UN name) type = pure $ Left (Checked.ExplicitArg, name, type)
+      classifyArg $ MkArg MW AutoImplicit (MN _ _) type = pure $ Right type
 
-    MkArg MW ImplicitArg     _ ty => failAt (getFC ty) "Implicit argument must be named and must not shadow any other name"
-    MkArg MW ExplicitArg     _ ty => failAt (getFC ty) "Explicit argument must be named and must not shadow any other name"
-    MkArg MW AutoImplicit    _ ty => failAt (getFC ty) "Auto-implicit argument must be unnamed"
+      classifyArg $ MkArg MW ImplicitArg     _ ty = failAt (getFC ty) "Implicit argument must be named and must not shadow any other name"
+      classifyArg $ MkArg MW ExplicitArg     _ ty = failAt (getFC ty) "Explicit argument must be named and must not shadow any other name"
+      classifyArg $ MkArg MW AutoImplicit    _ ty = failAt (getFC ty) "Auto-implicit argument must be unnamed"
 
-    MkArg M0 _               _ ty => failAt (getFC ty) "Erased arguments are not supported in generator function signatures"
-    MkArg M1 _               _ ty => failAt (getFC ty) "Linear arguments are not supported in generator function signatures"
-    MkArg MW (DefImplicit _) _ ty => failAt (getFC ty) "Default implicit arguments are not supported in generator function signatures"
+      classifyArg $ MkArg M0 _               _ ty = failAt (getFC ty) "Erased arguments are not supported in generator function signatures"
+      classifyArg $ MkArg M1 _               _ ty = failAt (getFC ty) "Linear arguments are not supported in generator function signatures"
+      classifyArg $ MkArg MW (DefImplicit _) _ ty = failAt (getFC ty) "Default implicit arguments are not supported in generator function signatures"
 
-  --------------------------------------------------
-  -- Target type family's arguments' first checks --
-  --------------------------------------------------
-
-  -- check all the arguments of the target type are correct variable names, not complex expressions
-  targetTypeArgs <- do
-    let inGivenOrGenerated : UserName -> Bool
-        inGivenOrGenerated n = any (\(_, n', _) => n == n') givenParams || any (\(n', _) => n == n') paramsToBeGenerated
-    let err : Name -> String -> String
-        err n suffix = "Name `\{show n}` is used in target's type, but is not a generated or given parameter (goes after the fuel argument); \{suffix}"
-    for targetTypeArgs $ \case
-      IVar fc un@(UN argName) => if inGivenOrGenerated argName then pure argName else failAt fc $ err un "did you forget to add one?"
-      IVar fc mn@(MN {}) => failAt fc $ err mn "looks like it is an implicit parameter of some underdeclared type; specify types with more precision"
-      nonVarArg => failAt (getFC nonVarArg) "Target type's argument must be a variable name, got `\{show nonVarArg}`"
-
-  -- check that all arguments names are unique
-  let [] = findDiffPairWhich (==) targetTypeArgs
-    | _ :: _ => failAt targetTypeFC "All arguments of the target type must be different"
-
-  -- check the given type info corresponds to the given type application, and convert a `List` to an appropriate `Vect`
-  let Yes targetTypeArgsLengthCorrect = targetType.tyArgs.length `decEq` targetTypeArgs.length
-    | No _ => fail "INTERNAL ERROR: unequal argument lists lengths: \{show targetTypeArgs.length} and \{show targetType.args.length}"
+    map partitionEithersPos $ for sigArgs.asVect classifyArg
 
   ----------------------------------------------------------------------
   -- Check that generated and given parameter lists are actually sets --
@@ -201,24 +190,31 @@ checkTypeIsGen checkSide origsig@sig = do
   -----------------------------------------------------------------------
 
   -- check that all parameters to be generated are actually used inside the target type
-  paramsToBeGenerated <- for {b=Fin targetType.args.length} paramsToBeGenerated $ \(name, ty) => case findIndex (== name) targetTypeArgs of
-    Just found => pure $ rewrite targetTypeArgsLengthCorrect in found
+  paramsToBeGenerated <- for {b=(_, Fin targetType.args.length)} paramsToBeGenerated $ \(name, ty) => case findIndex (== name) targetTypeArgs of
+    Just found => pure (ty, rewrite targetTypeArgsLengthCorrect in found)
     Nothing => failAt (getFC ty) "Generated parameter is not used in the target type"
 
-  -- check that all target type's parameters classified as "given" are present in the given params list
-  givenParams <- for {b=(Fin targetType.args.length, _)} givenParams $ \(explicitness, name, ty) => case findIndex (== name) targetTypeArgs of
-    Just found => pure (rewrite targetTypeArgsLengthCorrect in found, explicitness, UN name)
+  -- check that all target type's parameters classied as "given" are present in the given params list
+  givenParams <- for {b=(_, Fin targetType.args.length, _)} givenParams $ \(explicitness, name, ty) => case findIndex (== name) targetTypeArgs of
+    Just found => pure (ty, rewrite targetTypeArgsLengthCorrect in found, explicitness, UN name)
     Nothing => failAt (getFC ty) "Given parameter is not used in the target type"
 
-  -- remember the order of given params as a permutation and forget the order of the given params, convert to a map from index to explicitness
-  let Just (givenParams ** givensOrder) = mapAndPerm givenParams
-    | Nothing => fail "INTERNAL ERROR: can't compute correct given params permutation"
+  -- check the increasing order of generated params
+  let [] = findConsequentsWhich ((>=) `on` snd) paramsToBeGenerated
+    | (_, (ty, _)) :: _ => failAt (getFC ty) "Generated arguments must go in the same order as in the target type"
 
-  -- compute the order of generated params as a permutation
-  let gendOrder = orderIndices paramsToBeGenerated
+  -- check the increasing order of given params
+  let [] = findConsequentsWhich ((>=) `on` \(_, n, _) => n) givenParams
+    | (_, (ty, _, _)) :: _ => failAt (getFC ty) "Given arguments must go in the same order as in the target type"
+
+  -- make unable to use generated params list
+  let 0 paramsToBeGenerated = paramsToBeGenerated
+
+  -- forget the order of the given params, convert to a map from index to explicitness
+  let givenParams = fromList $ snd <$> givenParams
 
   -- make the resulting signature
-  let genSig = MkExternalGenSignature targetType givenParams givensOrder gendOrder
+  let genSig = MkExternalGenSignature {targetType, givenParams}
 
   -------------------------------------
   -- Auto-implicit generators checks --
@@ -230,7 +226,7 @@ checkTypeIsGen checkSide origsig@sig = do
       failAt genFC "Auto-implicit argument should not contain its own auto-implicit arguments"
 
   -- check all auto-implicit arguments pass the checks for the `Gen` in an appropriate context
-  autoImplArgs <- for autoImplArgs $ \tti => mapSnd (,tti) <$> checkTypeIsGen ExternalGen (assert_smaller origsig tti)
+  autoImplArgs <- for autoImplArgs $ \tti => mapSnd (,tti) <$> checkTypeIsGen ExternalGen (assert_smaller sig tti)
 
   -- check that all auto-imlicit arguments are unique
   let [] = findDiffPairWhich ((==) `on` \(_, sig, _) => sig) autoImplArgs
@@ -269,8 +265,7 @@ nameMod n = UN $ Basic "outer^<\{show n}>"
 
 internalGenCallingLambda : Elaboration m => CheckResult DerivationTask -> TTImp -> m TTImp
 internalGenCallingLambda (sig ** exts ** givsPos) call = do
-    let (givensReordered ** lenCorr) = reorder' sig.givenParams.asList sig.givensOrder
-    let Just args = joinEithersPos givensReordered exts.externals $ rewrite lenCorr in givsPos
+    let Just args = joinEithersPos sig.givenParams.asList exts.externals givsPos
       | Nothing => fail "INTERNAL ERROR: can't join partitioned args back"
     pure $ foldr mkLam call args
 
@@ -278,16 +273,14 @@ internalGenCallingLambda (sig ** exts ** givsPos) call = do
 
   -- either given param or auto param
   mkLam : Either (Fin sig.targetType.args.length, ArgExplicitness, Name) (ExternalGenSignature, TTImp) -> TTImp -> TTImp
-  mkLam $ Left (idx, expl, name) = lam $ MkArg MW expl.toTT .| Just (nameMod name) .| implicitTrue -- (index' sig.targetType.args idx).type
-                                                                                   -- ^^^ no type because of `nameMod` above
+  mkLam $ Left (idx, expl, name) = lam $ MkArg MW expl.toTT .| Just (nameMod name) .| implicitTrue -- (index' sig.targetType.args idx).type -- no type because of `nameMod` above
   mkLam $ Right (extSig, ty)     = lam $ MkArg MW AutoImplicit .| Just (nameForGen extSig) .| ty
                                    -- TODO to think whether it's okay to calculate the name twice: here and below for a map
 
-callMainDerivedGen : DerivationClosure m => ExternalGenSignature -> (fuelArg : Name) -> m TTImp
-callMainDerivedGen sig fuelArg = do
-  let Element intSig prf = internalise sig
-  map (reorderGend True sig.gendOrder . fst) $
-    callGen intSig (var fuelArg) $ rewrite prf in sig.givenParams.asVect <&> \(_, _, name) => var $ nameMod name
+callMainDerivedGen : CanonicGen m => ExternalGenSignature -> (fuelArg : Name) -> m TTImp
+callMainDerivedGen sig fuelArg =
+  let Element intSig prf = internalise sig in
+  callGen intSig (var fuelArg) $ rewrite prf in sig.givenParams.asVect <&> \(_, _, name) => var $ nameMod name
 
 wrapFuel : (fuelArg : Name) -> TTImp -> TTImp
 wrapFuel fuelArg = lam $ MkArg MW ExplicitArg (Just fuelArg) `(Data.Fuel.Fuel)
@@ -297,13 +290,11 @@ wrapFuel fuelArg = lam $ MkArg MW ExplicitArg (Just fuelArg) `(Data.Fuel.Fuel)
 ------------------------------
 
 export
-deriveGenExpr : DeriveBodyForType => (signature : TTImp) -> Elab TTImp
+deriveGenExpr : DerivatorCore => (signature : TTImp) -> Elab TTImp
 deriveGenExpr signature = do
   checkResult@(signature ** externals ** _) <- checkTypeIsGen DerivationTask signature
   let externalsSigToName = fromList $ externals.externals <&> \(sig, _) => (sig, nameForGen sig)
   let fuelArg = outmostFuelArg
-  _ <- logBounds {level=Trace} "deptycheck.derive.namesInfo" [] $ getNamesInfoInTypes signature.targetType
-  _ <- logBounds {level=Trace} "deptycheck.derive.consRec" [] getConsRecs
   (callExpr, locals) <- runCanonic externalsSigToName $ callMainDerivedGen signature fuelArg
   wrapFuel fuelArg <$> internalGenCallingLambda checkResult (local locals callExpr)
 
@@ -345,7 +336,7 @@ deriveGenExpr signature = do
 |||
 |||
 export %macro
-deriveGen : DeriveBodyForType => Elab a
+deriveGen : DerivatorCore => Elab a
 deriveGen = do
   Just signature <- goal
      | Nothing => fail "The goal signature is not found. Generators derivation must be used only for fully defined signatures"
@@ -365,38 +356,8 @@ deriveGen = do
 |||   genX = deriveGenFor $ Fuel -> (Fuel -> Gen Y) => (a : A) -> (c : C) -> Gen (b ** X a b c)
 |||   ```
 export %macro
-deriveGenFor : DeriveBodyForType => (0 a : Type) -> Elab a
+deriveGenFor : DerivatorCore => (0 a : Type) -> Elab a
 deriveGenFor a = do
   sig <- quote a
   tt <- deriveGenExpr sig
   check tt
-
-||| Declares `main : IO Unit` function that prints derived generator for the given generator's signature
-|||
-||| Caution! When `logDerivation` is set to `True`, this function would change the global logging state
-||| and wouldn't turn it back.
-export
-deriveGenPrinter : {default True printTTImp : _} -> {default True logDerivation : _} -> DeriveBodyForType => Type -> Elab Unit
-deriveGenPrinter ty = do
-  ty <- quote ty
-  when logDerivation $ declare `[%logging "deptycheck.derive.print" 5; %logging "deptycheck.derive.least-effort" 7]
-  logSugaredTerm "deptycheck.derive.print" (toNatLevel Details) "type" ty
-  expr <- deriveGenExpr ty
-  expr <- quote expr
-  printTTImp <- quote printTTImp
-  declare `[
-    export
-    main : IO Unit
-    main = do
-      putStr $ if ~printTTImp then interpolate ~expr else show ~expr
-      putStrLn ""
-  ]
-
------------------------
---- Global defaults ---
------------------------
-
-%defaulthint %inline
-public export
-DefaultConstructorDerivator : DeriveBodyRhsForCon
-DefaultConstructorDerivator = LeastEffort

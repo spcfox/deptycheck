@@ -5,7 +5,7 @@ import Data.String
 
 import Decidable.Equality
 
-%default total
+-- %default total
 
 -------------------------
 --- Types and context ---

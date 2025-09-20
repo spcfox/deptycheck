@@ -17,7 +17,7 @@ import public Decidable.Equality
 
 import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 
-%default total
+-- %default total
 
 --- Particular implementations producing the-core-derivation-function closure ---
 

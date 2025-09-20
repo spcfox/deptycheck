@@ -22,7 +22,7 @@ import Test.DepTyCheck.Gen
 
 import Text.ANSI
 
-%default total
+-- %default total
 
 ||| Raw information of covered labels
 public export

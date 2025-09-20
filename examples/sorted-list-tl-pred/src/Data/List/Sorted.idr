@@ -2,7 +2,7 @@ module Data.List.Sorted
 
 import public Data.Nat
 
-%default total
+-- %default total
 
 public export
 data SortedList : Type

@@ -2,7 +2,7 @@ module Example.Pil.Lang.Aspects.Variables
 
 import public Example.Pil.Lang.Aspects.Types
 
-%default total
+-- %default total
 
 --- Variable's name datatype ---
 

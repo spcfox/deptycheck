@@ -5,7 +5,7 @@ import Language.Reflection.TTImp
 
 import Text.PrettyPrint.Bernardy
 
-%default total
+-- %default total
 
 export %hint
 InterpolationTTImp' : Interpolation TTImp

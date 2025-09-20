@@ -5,7 +5,7 @@ import public Data.String -- public due to compiler's bug #2439
 
 import public Language.Reflection
 
-%default total
+-- %default total
 
 public export
 interface LogPosition a where

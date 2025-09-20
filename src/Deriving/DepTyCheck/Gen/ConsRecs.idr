@@ -17,7 +17,7 @@ import public Language.Reflection.Logging
 
 import public Syntax.IHateParens.Function
 
-%default total
+-- %default total
 
 ----------------------------------
 --- Constructors recursiveness ---

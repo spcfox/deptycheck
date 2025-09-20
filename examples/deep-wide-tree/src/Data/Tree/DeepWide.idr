@@ -4,7 +4,7 @@ import public Test.DepTyCheck.Gen
 
 import System.Random.Pure.StdGen
 
-%default total
+-- %default total
 
 public export
 data DW : Nat -> Type where

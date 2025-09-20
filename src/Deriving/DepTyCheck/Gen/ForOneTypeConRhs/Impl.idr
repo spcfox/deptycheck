@@ -16,7 +16,7 @@ import public Deriving.DepTyCheck.Gen.ForOneTypeConRhs.Interface
 import public Deriving.DepTyCheck.Gen.Labels
 import public Deriving.DepTyCheck.Gen.Tuning
 
-%default total
+-- %default total
 
 -------------------------------------------------------------------
 --- Data types characterising constructors for particular tasks ---

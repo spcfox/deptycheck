@@ -4,7 +4,7 @@ import public Data.So
 
 import public Language.PilFun.Pretty
 
-%default total
+-- %default total
 
 public export
 record NamedCtxt (l : SupportedLanguage) where

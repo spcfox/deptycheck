@@ -3,7 +3,7 @@ module Deriving.DepTyCheck.Gen.ForOneType.Interface
 import public Deriving.DepTyCheck.Gen.ForAllNeededTypes.Interface
 import public Deriving.DepTyCheck.Gen.Signature
 
-%default total
+-- %default total
 
 ------------------------------------------------------
 --- Deriving body of a generator for a single type ---

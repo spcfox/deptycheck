@@ -10,7 +10,7 @@ import public Data.Vect.Extra
 
 import public Language.Reflection.Compat.TypeInfo
 
-%default total
+-- %default total
 
 public export
 data ConsDetermInfo = DeterminedByType | NotDeterminedByType

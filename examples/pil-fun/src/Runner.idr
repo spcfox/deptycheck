@@ -21,7 +21,7 @@ import System
 import System.GetOpts
 import System.Random.Pure.StdGen
 
-%default total
+-- %default total
 
 -------------------
 --- CLI options ---

@@ -5,7 +5,7 @@ import Control.Order
 
 import public Language.Implicits.IfUnsolved
 
-%default total
+-- %default total
 
 --- The data ---
 

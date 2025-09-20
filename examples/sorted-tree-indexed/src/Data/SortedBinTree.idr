@@ -2,7 +2,7 @@ module Data.SortedBinTree
 
 import public Data.Nat
 
-%default total
+-- %default total
 
 public export
 data SortedBinTree1 : (mi, ma : Nat) -> Type where

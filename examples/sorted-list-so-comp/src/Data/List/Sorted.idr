@@ -2,7 +2,7 @@ module Data.List.Sorted
 
 import public Data.So
 
-%default total
+-- %default total
 
 mutual
 

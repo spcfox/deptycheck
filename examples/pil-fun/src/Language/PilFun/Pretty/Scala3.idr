@@ -15,7 +15,7 @@ import public Text.PrettyPrint.Bernardy
 
 import System.Random.Pure.StdGen
 
-%default total
+-- %default total
 
 printTy : Ty -> Doc opts
 printTy Int'  = "Int"

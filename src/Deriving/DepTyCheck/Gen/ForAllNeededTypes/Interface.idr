@@ -3,7 +3,7 @@ module Deriving.DepTyCheck.Gen.ForAllNeededTypes.Interface
 import public Deriving.DepTyCheck.Gen.ConsRecs
 import public Deriving.DepTyCheck.Gen.Signature
 
-%default total
+-- %default total
 
 --------------------------------------------------
 --- Using and deriving of any needed generator ---

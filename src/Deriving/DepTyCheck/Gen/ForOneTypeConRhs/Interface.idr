@@ -2,7 +2,7 @@ module Deriving.DepTyCheck.Gen.ForOneTypeConRhs.Interface
 
 import public Deriving.DepTyCheck.Gen.ForAllNeededTypes.Interface
 
-%default total
+-- %default total
 
 ------------------------------------------------------------
 --- Derivation of a generator for constructor's body RHS ---

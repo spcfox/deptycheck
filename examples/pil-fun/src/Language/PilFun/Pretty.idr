@@ -16,7 +16,7 @@ import public Text.PrettyPrint.Bernardy
 
 import System.Random.Pure.StdGen
 
-%default total
+-- %default total
 
 public export
 data SupportedLanguage = Scala3

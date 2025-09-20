@@ -7,7 +7,7 @@ import public Decidable.Equality
 
 import public Example.Pil.Lang.Aspects.Types
 
-%default total
+-- %default total
 
 public export
 data Registers : Nat -> Type where

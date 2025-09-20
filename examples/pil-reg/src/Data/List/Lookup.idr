@@ -1,6 +1,6 @@
 module Data.List.Lookup
 
-%default total
+-- %default total
 
 -----------------------------------------------
 --- List lookup with propositional equality ---

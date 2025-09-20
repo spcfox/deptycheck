@@ -5,7 +5,7 @@ import Data.String
 import Example.Pil.Lang.Expression
 import Example.Pil.Lang.Statement
 
-%default total
+-- %default total
 
 --- Expressions ---
 

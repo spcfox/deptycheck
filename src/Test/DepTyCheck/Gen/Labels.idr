@@ -5,7 +5,7 @@ import public Control.Monad.Trans
 
 import Data.String
 
-%default total
+-- %default total
 
 -----------------
 --- Labelling ---

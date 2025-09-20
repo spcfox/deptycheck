@@ -4,7 +4,7 @@ import public Language.Reflection.Expr
 import public Language.Reflection.Syntax
 import public Language.Reflection.Syntax.Ops
 
-%default total
+-- %default total
 
 public export
 data CTLabel = MkCTLabel TTImp
