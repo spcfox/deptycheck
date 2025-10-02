@@ -63,7 +63,7 @@ export
 record ConsRecs where
   constructor MkConsRecs
   ||| Map from a type name to a list of its constructors with their weight info
-  conWeights : SortedMap Name $ (givenTyArgs : SortedSet Nat) -> List (Con, ConWeightInfo)
+  conWeights : List (Name, (givenTyArgs : SortedSet Nat) -> List (Con, ConWeightInfo))
   ||| Derive a function for weighting type, if given type is weightable and needs a special function
   deriveWeightingFun : TypeInfo -> Maybe (Decl, Decl)
 
@@ -81,7 +81,7 @@ interimNamesWrapper : Name -> Name
 interimNamesWrapper n = UN $ Basic "inter^<\{show n}>"
 
 -- This function is moved out from `getConsRecs` to reduce the closure of the returned function
-deriveW : SortedMap Name (Maybe a, List (con : Con ** Either Nat1 (b, SortedSet $ Fin con.args.length))) -> TypeInfo -> Maybe (Decl, Decl)
+deriveW : List (Name, Maybe a, List (con : Con ** Either Nat1 (b, SortedSet $ Fin con.args.length))) -> TypeInfo -> Maybe (Decl, Decl)
 deriveW consRecs ty = do
   (decrArg, cons) <- lookup ty.tyName consRecs
   guard $ isJust decrArg -- continue only when this type has structurally decreasing argument
@@ -147,7 +147,7 @@ finCR tyName wTyArgs cons givenTyArgs = do
 export
 getConsRecs : Elaboration m => NamesInfoInTypes => m ConsRecs
 getConsRecs = do
-  consRecs <- for (fromList knownTypes) $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
+  consRecs <- for knownTypes $ \(nm, targetType) => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
       tuneImpl <- search $ ProbabilityTuning con.name
       w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive {containingType=Just targetType} con of
@@ -168,14 +168,14 @@ getConsRecs = do
       pure (con ** w)
     -- determine if this type is a nat-or-list-like data, i.e. one which we can measure for the probability
     let weightable = flip any crsForTy $ \case (_ ** Right (_, dra)) => not $ null dra; _ => False
-    pure (toMaybe weightable targetType, crsForTy)
-  let 0 _ : SortedMap Name (Maybe TypeInfo, List (con : Con ** Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length))) := consRecs
+    pure (nm, toMaybe weightable targetType, crsForTy)
+  let 0 _ : List (Name, Maybe TypeInfo, List (con : Con ** Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length))) := consRecs
 
   let weightableTyArgs : (ars : List Arg) -> SortedMap Nat (TypeInfo, Name) -- <- a map from Fin ars.length to a weightable type and its argument name
       weightableTyArgs ars = fromList $ flip List.mapMaybe ars.withIdx $ \(idx, ar) =>
-                               getAppVar ar.type >>= lookup' consRecs <&> fst >>= \tyN => [| (finToNat idx,,) tyN ar.name |]
-  let finalConsRecs = mapWithKey' consRecs $ \tyName, (_, cons) => do
-    finCR tyName (maybe SortedMap.empty .| weightableTyArgs . args .| lookupType tyName) cons
+                               getAppVar ar.type >>= flip lookup consRecs <&> fst >>= \tyN => [| (finToNat idx,,) tyN ar.name |]
+  let finalConsRecs = consRecs <&> \(tyName, _, cons) => do
+    (tyName, finCR tyName (maybe SortedMap.empty .| weightableTyArgs . args .| lookupType tyName) cons)
 
   pure $ MkConsRecs finalConsRecs $ deriveW consRecs
 
@@ -183,7 +183,7 @@ export
 lookupConsWithWeight : ConsRecs => GenSignature -> Maybe $ List (Con, ConWeightInfo)
 lookupConsWithWeight @{crs} sig = do
   let givs = mapIn finToNat sig.givenParams
-  lookup' crs.conWeights sig.targetType.name <&> (`apply` givs)
+  flip lookup crs.conWeights sig.targetType.name <&> (`apply` givs)
 
 export
 deriveWeightingFun : ConsRecs => TypeInfo -> Maybe (Decl, Decl)
