@@ -65,22 +65,26 @@ normaliseCons ty = for ty.cons normaliseCon <&> \cons' => {cons := cons'} ty
 export
 record NamesInfoInTypes where
   constructor Names
-  types : SortedMap Name TypeInfo
-  cons  : SortedMap Name (TypeInfo, Con)
-  namesInTypes : SortedMap TypeInfo $ SortedSet Name
+  types : List (Name, TypeInfo)
+  cons  : List (Name, TypeInfo, Con)
+  namesInTypes : List (TypeInfo, SortedSet Name)
 
 lookupByType : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
-lookupByType @{tyi} = lookup' tyi.types >=> lookup' tyi.namesInTypes
+lookupByType @{tyi} = flip List.lookup tyi.types >=> flip List.lookup tyi.namesInTypes
+  where
+    namespace LookupByType
+      public export
+      Eq TypeInfo where (==) = (==) `on` name
 
 lookupByCon : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
-lookupByCon @{tyi} = concatMap @{Deep} lookupByType . Prelude.toList . concatMap allVarNames' . conSubexprs . snd <=< lookup' tyi.cons
+lookupByCon @{tyi} = concatMap @{Deep} lookupByType . Prelude.toList . concatMap allVarNames' . conSubexprs . snd <=< flip lookup tyi.cons
 
 typeByCon : NamesInfoInTypes => Con -> Maybe TypeInfo
-typeByCon @{tyi} = map fst . lookup' tyi.cons . name
+typeByCon @{tyi} = map fst . flip lookup tyi.cons . name
 
 export
 lookupType : NamesInfoInTypes => Name -> Maybe TypeInfo
-lookupType @{tyi} = lookup' tyi.types
+lookupType @{tyi} = flip lookup tyi.types
 
 export
 lookupCon : NamesInfoInTypes => Name -> Maybe Con
@@ -88,7 +92,7 @@ lookupCon @{tyi} n = snd <$> lookup n tyi.cons
                  <|> typeCon <$> lookup n tyi.types
 
 export
-knownTypes : NamesInfoInTypes => SortedMap Name TypeInfo
+knownTypes : NamesInfoInTypes => List (Name, TypeInfo)
 knownTypes @{tyi} = tyi.types
 
 ||| Returns either resolved expression, or a non-unique name and the set of alternatives.
@@ -97,8 +101,8 @@ knownTypes @{tyi} = tyi.types
 export
 resolveNamesUniquely : NamesInfoInTypes => (freeNames : SortedSet Name) -> TTImp -> Either (Name, SortedSet Name) TTImp
 resolveNamesUniquely @{tyi} freeNames = do
-  let allConsideredNames = keySet tyi.types `union` keySet tyi.cons
-  let reverseNamesMap = concatMap (uncurry SortedMap.singleton) $ allConsideredNames.asList >>= \n => allNameSuffixes n <&> (, SortedSet.singleton n)
+  let allConsideredNames = map fst tyi.types ++ map fst tyi.cons
+  let reverseNamesMap = concatMap (uncurry SortedMap.singleton) $ allConsideredNames >>= \n => allNameSuffixes n <&> (, SortedSet.singleton n)
   mapATTImp' $ \case
     v@(IVar fc n) => if contains n freeNames then id else do
                        let Just resolvedAlts = lookup n reverseNamesMap | Nothing => id
@@ -108,7 +112,7 @@ resolveNamesUniquely @{tyi} freeNames = do
     _ => id
 
 Semigroup NamesInfoInTypes where
-  Names ts cs nit <+> Names ts' cs' nit' = Names (ts `mergeLeft` ts') (cs `mergeLeft` cs') (nit <+> nit')
+  Names ts cs nit <+> Names ts' cs' nit' = Names (ts ++ ts') (cs ++ cs') (nit <+> nit')
 
 Monoid NamesInfoInTypes where
   neutral = Names empty empty empty where
@@ -135,7 +139,7 @@ isRecursive con = case the (Maybe TypeInfo) $ containingType <|> typeByCon con o
 -- returns `Nothing` if given name is not a constructor
 export
 isRecursiveConstructor : NamesInfoInTypes => Name -> Maybe Bool
-isRecursiveConstructor @{tyi} n = lookup' tyi.cons n <&> \(ty, con) => isRecursive {containingType=Just ty} con
+isRecursiveConstructor @{tyi} n = flip lookup tyi.cons n <&> \(ty, con) => isRecursive {containingType=Just ty} con
 
 export
 getNamesInfoInTypes : Elaboration m => TypeInfo -> m NamesInfoInTypes
@@ -153,9 +157,9 @@ getNamesInfoInTypes ty = go neutral [ty] where
              if isNothing $ lookupByType n
                then map toList $ catch $ getInfo' n
                else pure []
-    let next = { types $= insert ti.name ti
-               , namesInTypes $= insert ti subes
-               , cons $= mergeLeft $ fromList $ ti.cons <&> \con => (con.name, ti, con)
+    let next = { types $= (::) (ti.name, ti)
+               , namesInTypes $= (::) (ti, subes)
+               , cons $= (++) $ ti.cons <&> \con => (con.name, ti, con)
                } tyi
     assert_total $ go next (new ++ rest)
 
