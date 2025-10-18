@@ -4,7 +4,7 @@
 
 [idris2]
 url = "https://github.com/spcfox/Idris2"
-commit = "16229b169a2208a5ae11cb99c90600cd36e54255"
+commit = "7adbdc562433a616afa21352dba67ae504ad25f5"
 
 [install]
 whitelist = [ "deptycheck-docs", "pil-fun", "pil-dyn" ]
