@@ -71,32 +71,25 @@ argNames (x :: xs) @{_ :: _} = Expr.argName x :: argNames xs
 ----------------------------------------------
 
 export
-normaliseAs' : Elaboration m =>
+normaliseAs'' : Elaboration m =>
                (0 expected : Type) ->
-               (preProcess : TTImp -> TTImp) ->
-               {0 resulting : _} -> (0 postProcess : (x : expected) -> resulting x) ->
                TTImp -> m TTImp
-normaliseAs' expected pre post expr = do
+normaliseAs'' expected expr = do
   let expr = cleanupNamedHoles expr
-  expr' <- quote $ post !(check {expected} $ pre expr)
+  expr' <- normaliseAs expected expr
   let (args, _) = unPi expr
   let (args', ty) = unPi expr'
   let args'' = comergeWith (\pre => {name := pre.name}) args args'
   pure $ piAll ty args''
 
 public export %inline
-normaliseAs : Elaboration m => (0 expected : Type) -> TTImp -> m TTImp
-normaliseAs ty = normaliseAs' ty id id
-
--- Normalises expression of any type; it is known to struggle with `let`s
-public export %inline
-normalise : Elaboration m => TTImp -> m TTImp
-normalise = normaliseAs' (ty ** ty) (\expr => `((_ ** ~expr))) snd
+normaliseAs' : Elaboration m => (0 expected : Type) -> TTImp -> m TTImp
+normaliseAs' ty = normaliseAs'' ty
 
 -- More precise normalisation of type expressions
 public export %inline
 normaliseAsType : Elaboration m => TTImp -> m TTImp
-normaliseAsType = normaliseAs Type
+normaliseAsType = normaliseAs' Type
 
 ------------------------------------------------------------------------
 --- Facilities for managing any kind of function application at once ---
