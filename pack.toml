@@ -2,6 +2,10 @@
 ### Settings ###
 ################
 
+[idris2]
+url = "https://github.com/spcfox/Idris2"
+commit = "5f8f5c7cbc5662ea7b6d16b38ca4b05bd9b250f1"
+
 [install]
 whitelist = [ "deptycheck-docs", "pil-fun", "pil-dyn" ]
 
