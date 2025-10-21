@@ -46,7 +46,6 @@ removeDeeply toRemove fromWhat = foldl delete' fromWhat toRemove <&> mapDetermin
 record TypeApp (0 con : Con) where
   constructor MkTypeApp
   argHeadType : TypeInfo
-  {auto 0 argHeadTypeGood : AllTyArgsNamed argHeadType}
   argApps : Vect argHeadType.args.length .| Either (Fin con.args.length) TTImp
   determ  : Determination con
 
@@ -72,7 +71,7 @@ getTypeApps con = do
           lhs                => failAt (getFC lhs) "Unsupported type of a constructor's \{show con.name} field: \{show lhs}"
         let Yes lengthCorrect = decEq ty.args.length args.length
           | No _ => failAt (getFC lhs) "INTERNAL ERROR: wrong count of unapp when analysing type application"
-        _ <- ensureTyArgsNamed ty
+        ensureTyArgsNamed ty
         let as = rewrite lengthCorrect in args.asVect <&> \arg => case getExpr arg of
                    expr@(IVar _ n) => mirror . maybeToEither expr $ lookup n conArgIdxs
                    expr            => Right expr

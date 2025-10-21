@@ -24,13 +24,9 @@ import public Syntax.IHateParens.List
 --------------------------
 
 public export
-data IsNamedArg : Arg -> Type where
-  ItIsNamed : IsNamedArg $ MkArg cnt pii (Just n) ty
-
-public export
-isNamedArg : (arg : Arg) -> Dec $ IsNamedArg arg
-isNamedArg (MkArg count piInfo (Just x) type) = Yes ItIsNamed
-isNamedArg (MkArg count piInfo Nothing type)  = No $ \case ItIsNamed impossible
+isNamedArg : (arg : Arg) -> Bool
+isNamedArg (MkArg count piInfo (Just x) type) = True
+isNamedArg (MkArg count piInfo Nothing type)  = False
 
 ------------------------------------
 --- General pure transformations ---
@@ -41,8 +37,8 @@ stname : Maybe Name -> Name
 stname = fromMaybe $ UN Underscore
 
 public export
-argName : (a : Arg) -> (0 _ : IsNamedArg a) => Name
-argName (MkArg _ _ Nothing _) impossible
+argName : (a : Arg) -> Name
+argName (MkArg _ _ Nothing _) = believe_me () -- impossible
 argName (MkArg _ _ (Just x) _) = x
 
 public export

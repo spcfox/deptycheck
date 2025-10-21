@@ -25,7 +25,6 @@ public export
 record GenSignature where
   constructor MkGenSignature
   targetType : TypeInfo
-  {auto 0 targetTypeCorrect : AllTyArgsNamed targetType}
   givenParams : SortedSet $ Fin targetType.args.length
 
 namespace GenSignature
@@ -117,7 +116,6 @@ public export
 record ExternalGenSignature where
   constructor MkExternalGenSignature
   targetType : TypeInfo
-  {auto 0 targetTypeCorrect : AllTyArgsNamed targetType}
   givenParams : SortedMap (Fin targetType.args.length) (ArgExplicitness, Name)
   givensOrder : Vect givenParams.size $ Fin givenParams.size -- must be a permutation
   {gendParamsCnt : _}

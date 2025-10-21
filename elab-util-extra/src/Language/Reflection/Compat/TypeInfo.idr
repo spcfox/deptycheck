@@ -45,11 +45,11 @@ allInvolvedTypes minimalRig ti = toList <$> go [ti] empty where
 
 -- Fails if the given type info does not have all type args named
 export
-ensureTyArgsNamed : Elaboration m => (ty : TypeInfo) -> m $ AllTyArgsNamed ty
-ensureTyArgsNamed ty = do
-  let Yes prf = areAllTyArgsNamed ty
-    | No _ => fail "Type info for type `\{ty.name}` contains unnamed arguments"
-  pure prf
+ensureTyArgsNamed : Elaboration m => (ty : TypeInfo) -> m ()
+ensureTyArgsNamed ty =
+  if areAllTyArgsNamed ty
+    then pure ()
+    else fail "Type info for type `\{ty.name}` contains unnamed arguments"
 
 --------------------------
 --- Changing type info ---

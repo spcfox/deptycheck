@@ -83,25 +83,12 @@ getInfo = getInfo'
 --- Namedness property ---
 
 public export
-data ConArgsNamed : Con -> Type where
-  TheyAreNamed : All IsNamedArg ars -> ConArgsNamed $ MkCon nm ars ty
+areConArgsNamed : (con : Con) -> Bool
+areConArgsNamed $ MkCon _ ars _ = all isNamedArg ars
 
 public export
-areConArgsNamed : (con : Con) -> Dec $ ConArgsNamed con
-areConArgsNamed $ MkCon _ ars _ with (all isNamedArg ars)
-  _ | Yes ars' = Yes $ TheyAreNamed ars'
-  _ | No nars  = No $ \(TheyAreNamed ars') => nars ars'
-
-public export
-data AllTyArgsNamed : TypeInfo -> Type where
-  TheyAllAreNamed : All IsNamedArg ars -> All ConArgsNamed cns -> AllTyArgsNamed $ MkTypeInfo nm ars cns
-
-public export
-areAllTyArgsNamed : (ty : TypeInfo) -> Dec $ AllTyArgsNamed ty
-areAllTyArgsNamed $ MkTypeInfo _ ars cns with (all isNamedArg ars, all areConArgsNamed cns)
-  _ | (Yes ars', Yes cns') = Yes $ TheyAllAreNamed ars' cns'
-  _ | (No nars, _) = No $ \(TheyAllAreNamed ars' _) => nars ars'
-  _ | (_, No ncns) = No $ \(TheyAllAreNamed _ cns') => ncns cns'
+areAllTyArgsNamed : (ty : TypeInfo) -> Bool
+areAllTyArgsNamed $ MkTypeInfo _ ars cns = all isNamedArg ars && all areConArgsNamed cns
 
 -------------------------------------
 --- Working around type inference ---
