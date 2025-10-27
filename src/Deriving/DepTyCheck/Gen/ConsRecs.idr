@@ -164,7 +164,7 @@ for = flip traverse
 export
 getConsRecs : Elaboration m => NamesInfoInTypes => m ConsRecs
 getConsRecs = do
-  consRecs <- ConsRecs.for knownTypes $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
+  consRecs <- ConsRecs.for (normalise knownTypes) $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
       tuneImpl <- search $ ProbabilityTuning con.name
       w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive {containingType=Just targetType} con of
