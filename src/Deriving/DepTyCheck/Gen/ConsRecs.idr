@@ -162,9 +162,22 @@ for : Applicative f => ListMap k a -> (a -> f b) -> f (ListMap k b)
 for = flip traverse
 
 export
+dedupBy : (a -> a -> Bool) -> List a -> List a
+dedupBy f (a :: xs@(b :: _)) = if f a b then dedupBy f xs else a :: dedupBy f xs
+dedupBy _ xs                = xs
+
+export %inline
+sortedNubBy : (a -> a -> Ordering) -> List a -> List a
+sortedNubBy ord = dedupBy (\x, y => ord x y == EQ) . sortBy ord
+
+export
+fastNormalise : Ord k => ListMap k v -> ListMap k v
+fastNormalise (MkListMap kv) = MkListMap $ sortedNubBy (comparing fst) kv
+
+export
 getConsRecs : Elaboration m => NamesInfoInTypes => m ConsRecs
 getConsRecs = do
-  consRecs <- ConsRecs.for (normalise knownTypes) $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
+  consRecs <- ConsRecs.for (fastNormalise knownTypes) $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
       tuneImpl <- search $ ProbabilityTuning con.name
       w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive {containingType=Just targetType} con of
