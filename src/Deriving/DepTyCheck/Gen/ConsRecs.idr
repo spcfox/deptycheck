@@ -64,7 +64,7 @@ export
 record ConsRecs where
   constructor MkConsRecs
   ||| Map from a type name to a list of its constructors with their weight info
-  conWeights : SortedMap Name $ (givenTyArgs : SortedSet Nat) -> List (Con, ConWeightInfo)
+  conWeights : ListMap Name $ (givenTyArgs : SortedSet Nat) -> List (Con, ConWeightInfo)
   ||| Derive a function for weighting type, if given type is weightable and needs a special function
   deriveWeightingFun : TypeInfo -> Maybe (Decl, Decl)
 
@@ -82,7 +82,7 @@ interimNamesWrapper : Name -> Name
 interimNamesWrapper n = UN $ Basic "inter^<\{show n}>"
 
 -- This function is moved out from `getConsRecs` to reduce the closure of the returned function
-deriveW : SortedMap Name (Maybe a, List (con : Con ** Either Nat1 (b, SortedSet $ Fin con.args.length))) -> TypeInfo -> Maybe (Decl, Decl)
+deriveW : ListMap Name (Maybe a, List (con : Con ** Either Nat1 (b, SortedSet $ Fin con.args.length))) -> TypeInfo -> Maybe (Decl, Decl)
 deriveW consRecs ty = do
   (decrArg, cons) <- lookup ty.tyName consRecs
   guard $ isJust decrArg -- continue only when this type has structurally decreasing argument
@@ -146,9 +146,25 @@ finCR tyName wTyArgs cons givenTyArgs = do
     pure $ StructurallyDecreasing decrTy $ wMod weightExpr
 
 export
+mapWithKey : (k -> a -> b) -> ListMap k a -> ListMap k b
+mapWithKey f (MkListMap kv) = MkListMap $ map (\(k, v) => (k, f k v)) kv
+
+export %inline
+mapWithKey' : ListMap k a -> (k -> a -> b) -> ListMap k b
+mapWithKey' = flip mapWithKey
+
+export
+traverse : Applicative f => (a -> f b) -> ListMap k a -> f (ListMap k b)
+traverse f (MkListMap kv) = MkListMap <$>traverse (traverse f) kv
+
+export %inline
+for : Applicative f => ListMap k a -> (a -> f b) -> f (ListMap k b)
+for = flip traverse
+
+export
 getConsRecs : Elaboration m => NamesInfoInTypes => m ConsRecs
 getConsRecs = do
-  consRecs <- for (toSortedMap knownTypes) $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
+  consRecs <- ConsRecs.for knownTypes $ \targetType => logBounds {level=DetailedTrace} "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
       tuneImpl <- search $ ProbabilityTuning con.name
       w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive {containingType=Just targetType} con of
@@ -170,7 +186,7 @@ getConsRecs = do
     -- determine if this type is a nat-or-list-like data, i.e. one which we can measure for the probability
     let weightable = flip any crsForTy $ \case (_ ** Right (_, dra)) => not $ null dra; _ => False
     pure (toMaybe weightable targetType, crsForTy)
-  let 0 _ : SortedMap Name (Maybe TypeInfo, List (con : Con ** Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length))) := consRecs
+  let 0 _ : ListMap Name (Maybe TypeInfo, List (con : Con ** Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length))) := consRecs
 
   let weightableTyArgs : (ars : List Arg) -> SortedMap Nat (TypeInfo, Name) -- <- a map from Fin ars.length to a weightable type and its argument name
       weightableTyArgs ars = fromList $ flip List.mapMaybe ars.withIdx $ \(idx, ar) =>
