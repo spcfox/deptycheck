@@ -29,7 +29,7 @@ ClosuringContext m =
   , MonadState  (List (GenSignature, Name)) m                           -- queue of gens to be derived
   , MonadState  Bool m                                                  -- flag that there is a need to start derivation loop
   , MonadState  (SortedSet Name) m                                      -- type names that were asked for deriving their weighting function
-  , MonadWriter (SnocList Decl, SnocList Decl) m                        -- function declarations and bodies
+  , MonadWriter (SnocList Decl) m                                       -- function declarations and bodies
   )
 
 nameForGen : GenSignature -> Name
@@ -48,7 +48,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
 
   needWeightFun ty = when (not !(gets $ contains ty.name)) $ do
     modify $ insert ty.name
-    whenJust (deriveWeightingFun ty) $ tell . mapHom pure
+    whenJust (deriveWeightingFun ty) $ \(x, y) => tell [<x, y]
 
   callGen sig fuel values = do
 
@@ -103,7 +103,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
         genFunBody <- logBounds {level=Info} "deptycheck.derive.type" [sig] $ def name <$> assert_total canonicBody sig name
 
         -- remember the derived stuff
-        tell ([<genFunClaim], [<genFunBody])
+        tell ([<genFunClaim, genFunBody])
 
       deriveAll : m ()
       deriveAll = do
@@ -116,13 +116,18 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
 
 export
 runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
-             SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, SnocList Decl)
+             SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  (x, defs, bodies) <- evalRWST
+  (x, declarations) <- evalRWST
                          exts
                          (empty, empty, empty, True)
                          calc
                          {s=(ListMap GenSignature Name, List (GenSignature, Name), SortedSet Name, _)}
-                         {w=(_, _)}
-  pure (x, defs ++ bodies)
+  pure (x, reorder [] [] declarations)
+  where
+    -- [< ..., b2, a2, b1, a1] -> [..., b2, b1, ..., a2, a1]
+    reorder : forall a. List a -> List a -> SnocList a -> List a
+    reorder defs bodies [<] = defs ++ bodies
+    reorder defs bodies (xs :< d :< b) = reorder (d :: defs) (b :: bodies) xs
+    reorder _ _ _ = [] -- impossible
