@@ -58,7 +58,7 @@ jobs:
     name: Prepare `pack`
     needs: validate_trigger
     runs-on: ubuntu-latest
-    container: ghcr.io/stefan-hoeck/idris2-pack:latest
+    container: ghcr.io/spcfox/idris2-pack:latest
     steps:
       - uses: actions/checkout@v4
 
@@ -78,7 +78,7 @@ jobs:
     name: Build thirdparties
     needs: prepare-pack
     runs-on: ubuntu-latest
-    container: ghcr.io/stefan-hoeck/idris2-pack:latest
+    container: ghcr.io/spcfox/idris2-pack:latest
     steps:
       - uses: actions/checkout@v4
       - name: Restore state of `pack`
@@ -110,7 +110,7 @@ jobs:
       - prepare-pack
       - thirdparties-build
     runs-on: ubuntu-latest
-    container: ghcr.io/stefan-hoeck/idris2-pack:latest
+    container: ghcr.io/spcfox/idris2-pack:latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -133,7 +133,7 @@ jobs:
       - prepare-pack
       - thirdparties-build
     runs-on: ubuntu-latest
-    container: ghcr.io/stefan-hoeck/idris2-pack:latest
+    container: ghcr.io/spcfox/idris2-pack:latest
     steps:
       - uses: actions/checkout@v4
       - name: Restore built thirdparties
@@ -204,7 +204,7 @@ jobs:
       - deptycheck-build-lib
       - get-test-sets
     runs-on: ubuntu-latest
-    container: ghcr.io/stefan-hoeck/idris2-pack:latest
+    container: ghcr.io/spcfox/idris2-pack:latest
     strategy:
       fail-fast: false # all test cases are more or less independent
       matrix:
@@ -252,7 +252,7 @@ jobs:
       - deptycheck-build-lib
       - get-examples
     runs-on: ubuntu-latest
-    container: ghcr.io/stefan-hoeck/idris2-pack:latest
+    container: ghcr.io/spcfox/idris2-pack:latest
     strategy:
       fail-fast: false # all test cases are more or less independent
       matrix:
