@@ -25,11 +25,11 @@ import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 ClosuringContext : (Type -> Type) -> Type
 ClosuringContext m =
   ( MonadReader (SortedMap GenSignature (ExternalGenSignature, Name)) m -- external gens
-  , MonadState  (ListMap GenSignature Name) m                         -- gens already asked to be derived
+  , MonadState  (ListMap GenSignature Name) m                           -- gens already asked to be derived
   , MonadState  (List (GenSignature, Name)) m                           -- queue of gens to be derived
   , MonadState  Bool m                                                  -- flag that there is a need to start derivation loop
   , MonadState  (SortedSet Name) m                                      -- type names that were asked for deriving their weighting function
-  , MonadWriter (List Decl, List Decl) m                                -- function declarations and bodies
+  , MonadWriter (SnocList Decl, SnocList Decl) m                        -- function declarations and bodies
   )
 
 nameForGen : GenSignature -> Name
@@ -48,7 +48,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
 
   needWeightFun ty = when (not !(gets $ contains ty.name)) $ do
     modify $ insert ty.name
-    whenJust (deriveWeightingFun ty) $ tell . mapHom singleton
+    whenJust (deriveWeightingFun ty) $ tell . mapHom pure
 
   callGen sig fuel values = do
 
@@ -103,7 +103,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
         genFunBody <- logBounds {level=Info} "deptycheck.derive.type" [sig] $ def name <$> assert_total canonicBody sig name
 
         -- remember the derived stuff
-        tell ([genFunClaim], [genFunBody])
+        tell ([<genFunClaim], [<genFunBody])
 
       deriveAll : m ()
       deriveAll = do
@@ -116,7 +116,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
 
 export
 runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
-             SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
+             SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, SnocList Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
   (x, defs, bodies) <- evalRWST

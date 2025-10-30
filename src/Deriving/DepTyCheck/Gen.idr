@@ -305,7 +305,7 @@ deriveGenExpr signature = do
   _ <- logBounds {level=Trace} "deptycheck.derive.namesInfo" [] $ getNamesInfoInTypes signature.targetType
   _ <- logBounds {level=Trace} "deptycheck.derive.consRec" [] getConsRecs
   (callExpr, locals) <- runCanonic externalsSigToName $ callMainDerivedGen signature fuelArg
-  wrapFuel fuelArg <$> internalGenCallingLambda checkResult (local locals callExpr)
+  wrapFuel fuelArg <$> internalGenCallingLambda checkResult (local (toList locals) callExpr)
 
 ||| The entry-point function of automatic derivation of `Gen`'s.
 |||
