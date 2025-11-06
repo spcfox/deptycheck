@@ -30,6 +30,7 @@ ClosuringContext m =
   , MonadState  (List (GenSignature, Name)) m                           -- queue of gens to be derived
   , MonadState  Bool m                                                  -- flag that there is a need to start derivation loop
   , MonadState  (SortedSet Name) m                                      -- type names that were asked for deriving their weighting function
+  , MonadWriter (SnocList Decl, SnocList Decl) m                        -- function declarations and bodies
   )
 
 nameForGen : GenSignature -> Name
@@ -44,13 +45,11 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
                                     Yes prf => Just $ Element extSig prf
                                     No _    => Nothing
 
-(derived : ElabRef (SnocList Decl, SnocList Decl)) => DeriveBodyForType =>
-ClosuringContext m => Elaboration m => NamesInfoInTypes => ConsRecs => DerivationClosure m where
+DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => ConsRecs => DerivationClosure m where
 
   needWeightFun ty = when (not !(gets $ contains ty.name)) $ do
     modify $ insert ty.name
-    whenJust (deriveWeightingFun ty) $
-      flip modifyRef_ derived . uncurry bimap . mapHom (flip (:<))
+    whenJust (deriveWeightingFun ty) $ tell . mapHom pure
 
   callGen sig fuel values = do
 
@@ -105,7 +104,7 @@ ClosuringContext m => Elaboration m => NamesInfoInTypes => ConsRecs => Derivatio
         genFunBody <- logBounds Info "deptycheck.derive.type" [sig] $ def name <$> assert_total canonicBody sig name
 
         -- remember the derived stuff
-        flip modifyRef_ derived $ bimap (:< genFunClaim) (:< genFunBody)
+        tell ([<genFunClaim], [<genFunBody])
 
       deriveAll : m ()
       deriveAll = do
@@ -121,11 +120,19 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  derived <- newRef {a=(SnocList Decl, SnocList Decl)} ([<], [<])
-  (x, _) <- evalRWST exts
-                     (empty, empty, empty, True)
-                     calc
-                     {s=(ListMap GenSignature Name, List (GenSignature, Name), SortedSet Name, _)}
-                     {w=()}
+  let _ : MonadReader (SortedMap GenSignature (ExternalGenSignature, Name)) Elab =
+          ForRef !(newRef exts)
+  let _ : MonadState  (ListMap GenSignature Name) Elab =
+          ForRef !(newRef empty)
+  let _ : MonadState  (List (GenSignature, Name)) Elab =
+          ForRef !(newRef empty)
+  let _ : MonadState  Bool Elab =
+          ForRef !(newRef True)
+  let _ : MonadState  (SortedSet Name) Elab =
+          ForRef !(newRef empty)
+  derived <- newRef ([<], [<])
+  let _ : MonadWriter (SnocList Decl, SnocList Decl) Elab =
+          ForRef derived
+  x <- calc
   (defs, bodies) <- readRef derived
   pure (x, toList $ defs ++ bodies)
