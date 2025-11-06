@@ -13,6 +13,7 @@ import public Data.List.Map
 import public Data.SortedMap
 import public Data.SortedMap.Extra
 import public Data.SortedSet
+import public Data.Ref
 
 import public Decidable.Equality
 
@@ -25,11 +26,10 @@ import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 ClosuringContext : (Type -> Type) -> Type
 ClosuringContext m =
   ( MonadReader (SortedMap GenSignature (ExternalGenSignature, Name)) m -- external gens
-  , MonadState  (ListMap GenSignature Name) m                         -- gens already asked to be derived
+  , MonadState  (ListMap GenSignature Name) m                           -- gens already asked to be derived
   , MonadState  (List (GenSignature, Name)) m                           -- queue of gens to be derived
   , MonadState  Bool m                                                  -- flag that there is a need to start derivation loop
   , MonadState  (SortedSet Name) m                                      -- type names that were asked for deriving their weighting function
-  , MonadWriter (List Decl, List Decl) m                                -- function declarations and bodies
   )
 
 nameForGen : GenSignature -> Name
@@ -44,11 +44,13 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
                                     Yes prf => Just $ Element extSig prf
                                     No _    => Nothing
 
-DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => ConsRecs => DerivationClosure m where
+(derived : ElabRef (SnocList Decl, SnocList Decl)) => DeriveBodyForType =>
+ClosuringContext m => Elaboration m => NamesInfoInTypes => ConsRecs => DerivationClosure m where
 
   needWeightFun ty = when (not !(gets $ contains ty.name)) $ do
     modify $ insert ty.name
-    whenJust (deriveWeightingFun ty) $ tell . mapHom singleton
+    whenJust (deriveWeightingFun ty) $
+      flip modifyRef_ derived . uncurry bimap . mapHom (flip (:<))
 
   callGen sig fuel values = do
 
@@ -103,7 +105,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => NamesInfoInTypes => 
         genFunBody <- logBounds Info "deptycheck.derive.type" [sig] $ def name <$> assert_total canonicBody sig name
 
         -- remember the derived stuff
-        tell ([genFunClaim], [genFunBody])
+        flip modifyRef_ derived $ bimap (:< genFunClaim) (:< genFunBody)
 
       deriveAll : m ()
       deriveAll = do
@@ -119,10 +121,11 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  (x, defs, bodies) <- evalRWST
-                         exts
-                         (empty, empty, empty, True)
-                         calc
-                         {s=(ListMap GenSignature Name, List (GenSignature, Name), SortedSet Name, _)}
-                         {w=(_, _)}
-  pure (x, defs ++ bodies)
+  derived <- newRef {a=(SnocList Decl, SnocList Decl)} ([<], [<])
+  (x, _) <- evalRWST exts
+                     (empty, empty, empty, True)
+                     calc
+                     {s=(ListMap GenSignature Name, List (GenSignature, Name), SortedSet Name, _)}
+                     {w=()}
+  (defs, bodies) <- readRef derived
+  pure (x, toList $ defs ++ bodies)
