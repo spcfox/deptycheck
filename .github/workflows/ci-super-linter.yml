@@ -15,7 +15,9 @@ on:
   workflow_dispatch:
 
 permissions:
+  contents: read
   statuses: write
+  pull-requests: write
 
 concurrency:
   group: ${{ github.workflow }}@${{ github.ref }}
@@ -38,8 +40,35 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@v6
+        uses: super-linter/super-linter/slim@v8
         env:
           DEFAULT_BRANCH: master
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           IGNORE_GENERATED_FILES: true
+          SAVE_SUPER_LINTER_SUMMARY: true # Required for generating linting reports in PR
+
+          VALIDATE_PYTHON_BLACK: false # Avoid conflict: Ruff is preferred
+          VALIDATE_GIT_COMMITLINT: false
+
+          # Using Biome instead of Prettier, ESLint and stylelint
+          VALIDATE_CSS_PRETTIER: false
+          VALIDATE_GRAPHQL_PRETTIER: false
+          VALIDATE_HTML_PRETTIER: false
+          VALIDATE_JAVASCRIPT_PRETTIER: false
+          VALIDATE_JSON_PRETTIER: false
+          VALIDATE_JSONC_PRETTIER: false
+          VALIDATE_JSX_PRETTIER: false
+          VALIDATE_MARKDOWN_PRETTIER: false
+          VALIDATE_TYPESCRIPT_PRETTIER: false
+          VALIDATE_VUE_PRETTIER: false
+          VALIDATE_YAML_PRETTIER: false
+
+          VALIDATE_JAVASCRIPT_ES: false
+          VALIDATE_TYPESCRIPT_ES: false
+
+          VALIDATE_CSS: false
+          VALIDATE_JSON: false
+          VALIDATE_JSONC: false
+          VALIDATE_JSX: false
+          VALIDATE_TSX: false
+          VALIDATE_VUE: false
