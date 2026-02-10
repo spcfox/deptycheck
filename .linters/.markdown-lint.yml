@@ -1,5 +1,13 @@
-first-line-h1: false
-blanks-around-fences: false
-MD013:
+headings:
+  style: atx
+bullet:
+  style: dash
+first-line-h1:
+  allow_preamble: true
+line-length:
   line_length: 152
   code_block_line_length: 152
+code-block-style:
+  style: fenced
+code-fence-style:
+  style: backtick

@@ -319,8 +319,8 @@ genNat = deriveGen
 
 It uses very powerful metaprogramming facility of Idris 2 programming language
 for analysing the data structure which generator is derived for and producing code of the asked generator at compile time.
-This facility is called *elaborator reflection*, and you can find some kind of tutorial for this
-[here](https://github.com/stefan-hoeck/idris2-elab-util/blob/main/src/Doc/Index.md).
+This facility is called *elaborator reflection*, more information can be found in the
+[elaborator reflection tutorial](https://github.com/stefan-hoeck/idris2-elab-util/blob/main/src/Doc/Index.md).
 To enable it, you have to add `%language ElabReflection` to the source code before the first call to the macro.
 
 However, beware of possible high resources consumption of this stage.
