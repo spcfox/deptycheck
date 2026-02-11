@@ -51,7 +51,7 @@ deptycheck:test:
     - deptycheck:build
   parallel:
     matrix:
-      - TEST_SET: [ TEST_SETS ]
+      - TEST_SET: [TEST_SETS]
   script:
     - pack test deptycheck "$TEST_SET"
 
@@ -61,7 +61,7 @@ example:build-and-test:
     - deptycheck:build
   parallel:
     matrix:
-      - EXAMPLE: [ EXAMPLES_SET ]
+      - EXAMPLE: [EXAMPLES_SET]
   script:
     - pack build "$EXAMPLE"
     - pack test "$EXAMPLE"

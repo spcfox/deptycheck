@@ -44,6 +44,7 @@ The following code would be derived:
 <!-- idris
 namespace SingleGen {
 -->
+
 ```idris
 genX : Fuel -> Gen MaybeEmpty X
 genX fuel = data_X fuel
@@ -73,6 +74,7 @@ genX fuel = data_X fuel
         con_Y0 fuel = ?gen_body_for_constructor_Y0
         con_Y1 fuel = ?gen_body_for_constructor_Y1
 ```
+
 <!-- idris
   }
 -->

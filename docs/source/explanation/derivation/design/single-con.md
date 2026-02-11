@@ -29,6 +29,7 @@ We could derive for them something like this:
 <!-- idris
 namespace SingleCon_Simple {
 -->
+
 ```idris
 genX : Fuel -> Gen MaybeEmpty X
 genX fuel = data_X fuel
@@ -58,6 +59,7 @@ genX fuel = data_X fuel
         con_Y0 fuel = [| Y0               |]
         con_Y1 fuel = [| Y1 (data_X fuel) |]
 ```
+
 <!-- idris
   }
 -->
@@ -75,6 +77,7 @@ The following code would be derived.
 <!-- idris
 namespace SingleCon_Full {
 -->
+
 ```idris
 genX : Fuel -> Gen MaybeEmpty X
 genX fuel = data_X fuel
@@ -106,6 +109,7 @@ genX fuel = data_X fuel
         con_Y1 fuel = oneOf [ do x <- data_X fuel
                                  pure $ Y1 x ]
 ```
+
 <!-- idris
   }
 -->
@@ -138,10 +142,12 @@ data D : Bool -> Type where
 <!-- idris
 namespace TypIdx_Gend_DerivTask {
 -->
+
 ```idris
 genD_idx_generated : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (Fuel -> Gen MaybeEmpty String) => Gen MaybeEmpty (b ** D b)
 genD_idx_generated = deriveGen
 ```
+
 <!-- idris
   }
 -->
@@ -151,6 +157,7 @@ For this derivation task the following generator function would be derived.
 <!-- idris
 namespace TypIdx_Gend_DerivedExample {
 -->
+
 ```idris
 genD_idx_generated : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (Fuel -> Gen MaybeEmpty String) => Gen MaybeEmpty (b ** D b)
 genD_idx_generated @{data_Nat} @{data_String} fuel = data_D_giv_no fuel
@@ -193,6 +200,7 @@ genD_idx_generated @{data_Nat} @{data_String} fuel = data_D_giv_no fuel
                                  (b ** d) <- data_D_giv_no fuel
                                  pure (_ ** TR {b} s d) ]
 ```
+
 <!-- idris
   }
 -->
@@ -213,10 +221,12 @@ But since the target data type has a type argument, we can have a derivation tas
 <!-- idris
 namespace TypIdx_Givn_DerivTask {
 -->
+
 ```idris
 genD_idx_generated : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (Fuel -> Gen MaybeEmpty String) => (b : Bool) -> Gen MaybeEmpty (D b)
 genD_idx_generated = deriveGen
 ```
+
 <!-- idris
   }
 -->
@@ -226,6 +236,7 @@ It means that all the internal generators would also have additional argument an
 <!-- idris
 namespace TypIdx_Givn_DerivedStructure_BeforeMatch {
 -->
+
 ```idris
 genD_idx_generated : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (Fuel -> Gen MaybeEmpty String) => (b : Bool) -> Gen MaybeEmpty (D b)
 genD_idx_generated @{data_Nat} @{data_String} fuel b = data_D_giv_b fuel b
@@ -245,6 +256,7 @@ genD_idx_generated @{data_Nat} @{data_String} fuel b = data_D_giv_b fuel b
         con_TL fuel b = ?body_for_TL_cons
         con_TR fuel b = ?body_for_TR_cons
 ```
+
 <!-- idris
   }
 -->
@@ -265,6 +277,7 @@ So, the structure of the derived generator with the given type index would be th
 <!-- idris
 namespace TypIdx_Givn_DerivedStructure_WithMatch {
 -->
+
 ```idris
 genD_idx_generated : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (Fuel -> Gen MaybeEmpty String) => (b : Bool) -> Gen MaybeEmpty (D b)
 genD_idx_generated @{data_Nat} @{data_String} fuel b = data_D_giv_b fuel b
@@ -290,6 +303,7 @@ genD_idx_generated @{data_Nat} @{data_String} fuel b = data_D_giv_b fuel b
         con_TR fuel True = ?body_for_TR_cons
         con_TR _ _ = empty
 ```
+
 <!-- idris
   }
 -->
@@ -316,6 +330,7 @@ The final structure of the derived generator would be the following.
 <!-- idris
 namespace TypIdx_Givn_DerivedFinal {
 -->
+
 ```idris
 genD_idx_generated : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (Fuel -> Gen MaybeEmpty String) => (b : Bool) -> Gen MaybeEmpty (D b)
 genD_idx_generated @{data_Nat} @{data_String} fuel b = data_D_giv_b fuel b
@@ -354,6 +369,7 @@ genD_idx_generated @{data_Nat} @{data_String} fuel b = data_D_giv_b fuel b
                                       pure $ TR {b} s d ]
         con_TR _ _ = empty
 ```
+
 <!-- idris
   }
 -->
@@ -386,10 +402,12 @@ Consider the following derivation task.
 <!-- idris
 namespace Eq_AllGened_DerivTask {
 -->
+
 ```idris
 genEqN_all_gened : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => Gen MaybeEmpty (n ** m ** EqualN n m)
 genEqN_all_gened = deriveGen
 ```
+
 <!-- idris
   }
 -->
@@ -399,6 +417,7 @@ For this case, derivation of a generator is straightforward:
 <!-- idris
 namespace Eq_AllGened_Derived {
 -->
+
 ```idris
 genEqN_all_gened : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => Gen MaybeEmpty (n ** m ** EqualN n m)
 genEqN_all_gened @{data_Nat} fuel = data_EqualN_giv_no fuel
@@ -413,6 +432,7 @@ genEqN_all_gened @{data_Nat} fuel = data_EqualN_giv_no fuel
                                     pure (_ ** _ ** ReflN {x}) ]
 
 ```
+
 <!-- idris
   }
 -->
@@ -426,10 +446,12 @@ Consider we have the following derivation task.
 <!-- idris
 namespace Eq_LeftGened_DerivTask {
 -->
+
 ```idris
 genEqN_right_gened : Fuel -> (n : Nat) -> Gen MaybeEmpty (m ** EqualN n m)
 genEqN_right_gened = deriveGen
 ```
+
 <!-- idris
   }
 -->
@@ -439,6 +461,7 @@ The only difference with the previous one is that one of naturals is simply give
 <!-- idris
 namespace Eq_LeftGened_Derived {
 -->
+
 ```idris
 genEqN_right_gened : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (n : Nat) -> Gen MaybeEmpty (m ** EqualN n m)
 genEqN_right_gened @{data_Nat} fuel n = data_EqualN_giv_l fuel n
@@ -451,6 +474,7 @@ genEqN_right_gened @{data_Nat} fuel n = data_EqualN_giv_l fuel n
         con_ReflN : Fuel -> (n : Nat) -> Gen MaybeEmpty (m ** EqualN n m)
         con_ReflN fuel n = oneOf [ do pure (_ ** ReflN {x=n}) ]
 ```
+
 <!-- idris
   }
 -->
@@ -469,10 +493,12 @@ So, consider the following derivation task.
 <!-- idris
 namespace Eq_AllGiven_DerivTask {
 -->
+
 ```idris
 genEqN_all_given : Fuel -> (n, m : Nat) -> Gen MaybeEmpty $ EqualN n m
 genEqN_all_given = deriveGen
 ```
+
 <!-- idris
   }
 -->
@@ -502,6 +528,7 @@ For the last derivation task, derived generator would be the following.
 <!-- idris
 namespace Eq_AllGiven_Derived {
 -->
+
 ```idris
 genEqN_all_given : Fuel -> (Fuel -> Gen MaybeEmpty Nat) => (n, m : Nat) -> Gen MaybeEmpty $ EqualN n m
 genEqN_all_given @{data_Nat} fuel n = data_EqualN_giv_l_r fuel n
@@ -516,6 +543,7 @@ genEqN_all_given @{data_Nat} fuel n = data_EqualN_giv_l_r fuel n
           No  _    => empty
           Yes Refl => oneOf [ pure $ ReflN {x=n} ]
 ```
+
 <!-- idris
   }
 -->
@@ -549,10 +577,12 @@ Consider the hardest derivation task, the one, where both type arguments are giv
 <!-- idris
 namespace DeepEq_AllGiven_DerivTask {
 -->
+
 ```idris
 genLT2_all_given : Fuel -> (n, m : Nat) -> Gen MaybeEmpty $ LT2 n m
 genLT2_all_given = deriveGen
 ```
+
 <!-- idris
   }
 -->
@@ -560,6 +590,7 @@ genLT2_all_given = deriveGen
 <!-- idris
 namespace DeepEq_AllGiven_Derivation {
 -->
+
 ```idris
 genLT2_all_given : Fuel -> (n, m : Nat) -> Gen MaybeEmpty $ LT2 n m
 genLT2_all_given fuel n m = data_LT2_given_l_r fuel n m
@@ -581,6 +612,7 @@ genLT2_all_given fuel n m = data_LT2_given_l_r fuel n m
                                            pure $ Step {x=n, y=m} lt ]
         con_Step _ _ _ = empty
 ```
+
 <!-- idris
   }
 -->
@@ -645,8 +677,7 @@ We considered at least the following variants to be useful.
 - **Non-obligatory strategies**.
   "Non-obligatory" means that some present external generator of some type
   may be ignored even if its type is really used in a generated data constructor.
-
-  - Least-effort non-obligatory tactic is one which *does not use externals* during taking a decision on the order.
+  - Least-effort non-obligatory tactic is one which _does not use externals_ during taking a decision on the order.
     It uses externals if decided order happens to be given by an external generator, but is not obliged to use any.
     It is seemingly most simple to implement, maybe the fastest and
     fits well when external generators are provided for non-dependent types
@@ -671,14 +702,14 @@ We considered at least the following variants to be useful.
   is considered to be a generator for the type `C`.
   The problem with obligatory generators is that some external generators may be incompatible.
 
-    E.g. once we have `(a : _) -> (b ** C a b)` and `(a ** b ** C a b)` at the same time,
-    once `C` is used in the same constructor, we cannot guarantee that we will use both external generators.
+  E.g. once we have `(a : _) -> (b ** C a b)` and `(a ** b ** C a b)` at the same time,
+  once `C` is used in the same constructor, we cannot guarantee that we will use both external generators.
 
-    The same problem is present once we have external generators for `(a : _) -> (b : T ** C a b)` and `(b : T ** D b)` at the same time,
-    and both `C` and `D` are used in the same constructor with the same parameter of type `T`,
-    i.e. when constructor have something like `C a b -> D b -> ...`.
+  The same problem is present once we have external generators for `(a : _) -> (b : T ** C a b)` and `(b : T ** D b)` at the same time,
+  and both `C` and `D` are used in the same constructor with the same parameter of type `T`,
+  i.e. when constructor have something like `C a b -> D b -> ...`.
 
-    Notice, that this problem does not arise in constructors of type `C a b1 -> D b2 -> ...`
+  Notice, that this problem does not arise in constructors of type `C a b1 -> D b2 -> ...`
 
   In this case, we cannot decide in general which value of type `T` to be used for generation is we have to use both generators.
   We can either fail to generate a value for such constructor (`FailFast`),

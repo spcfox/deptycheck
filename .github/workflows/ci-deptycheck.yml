@@ -4,9 +4,9 @@ name: DepTyCheck
 on:
   push:
     branches:
-      - '**'
+      - "**"
     tags:
-      - '**'
+      - "**"
   pull_request:
     branches:
       - main
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
   schedule:
     # We want to run in the beginning of the day, right after the `pack` collection is built at the end of the previous day.
-    - cron: '0 1 * * *'
+    - cron: "0 1 * * *"
 
 permissions:
   contents: read
@@ -34,7 +34,6 @@ env:
 # TODO to reduce duplication, e.g. by using https://docs.github.com/en/actions/using-workflows/reusing-workflows
 
 jobs:
-
   ##############
   # Validation #
   ##############
@@ -43,9 +42,9 @@ jobs:
     name: Validate trigger
     # Disable scheduled running on forks and PRs from the same repo
     if: github.event_name != 'schedule' && github.event_name != 'pull_request' ||
-        github.event_name == 'schedule' && github.repository_owner == 'buzden' ||
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
+      github.event_name == 'schedule' && github.repository_owner == 'buzden' ||
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name != github.event.pull_request.base.repo.full_name
     runs-on: ubuntu-latest
     steps:
       - name: No-op step
@@ -95,8 +94,9 @@ jobs:
         run: .github/tar-pack restore "${{ env.pack_dir_file }}"
 
       - run: pack install-deps deptycheck
-      - run: pack install summary-stat # for distr tests
-             # TODO to compute test dependencies when we have special mini-test libs
+      - run:
+          pack install summary-stat # for distr tests
+          # TODO to compute test dependencies when we have special mini-test libs
 
       - name: Tar the `pack` dir
         run: .github/tar-pack save-pack "${{ env.pack_dir_file }}"
@@ -157,7 +157,7 @@ jobs:
       - run: pack install deptycheck
 
       - name: Tar the `pack` dir
-        run:  .github/tar-pack save-pack "${{ env.pack_dir_file }}"
+        run: .github/tar-pack save-pack "${{ env.pack_dir_file }}"
       - name: Tar built TTC files
         run: find "$(pwd)" -name '*.tt[cm]' | .github/tar-pack save-stdin "${{ env.pack_dir_file }}"
       - name: Save built DepTyCheck

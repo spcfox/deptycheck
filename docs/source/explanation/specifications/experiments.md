@@ -15,7 +15,8 @@ deriveGen : a
 -->
 
 <!-- The code block below uses ```<space>idris intentionally, now this code does not compile and it's okay -->
-``` idris
+
+```idris
 %language ElabReflection
 
 %hint
@@ -102,7 +103,8 @@ There's one more detail. The values that index types also affect the derivation 
 For example, derivation task for `SomeType` indexed by `0` was completed 20 times faster than for indexed by `2147483647`.
 
 <!--- This code takes too long to compile --->
+
 ::: {code} idris
 data LongNum : Nat -> Type where
-  MkLN: LongNum 2147483647
+MkLN: LongNum 2147483647
 :::

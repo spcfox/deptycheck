@@ -12,7 +12,7 @@ super_linter:
   needs: []
   image:
     name: ghcr.io/super-linter/super-linter:slim-v6
-  script: [ "true" ]
+  script: ["true"]
   variables:
     RUN_LOCAL: "true"
     DEFAULT_WORKSPACE: $CI_PROJECT_DIR
@@ -54,7 +54,7 @@ deptycheck:prepare-pipeline:
       - deptycheck-generated.yml
 deptycheck:run-pipeline:
   stage: deptycheck
-  needs: [ deptycheck:prepare-pipeline ]
+  needs: [deptycheck:prepare-pipeline]
   trigger:
     include:
       - job: deptycheck:prepare-pipeline

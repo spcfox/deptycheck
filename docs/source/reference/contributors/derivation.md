@@ -1,7 +1,7 @@
 # Derivation internals
 
 :::{todo}
-Info on *how* this or that part of the derivation facility is implemented.
+Info on _how_ this or that part of the derivation facility is implemented.
 Think of useful sections below
 :::
 
@@ -44,4 +44,4 @@ Three phases of generation:
 - first right-to-left phase
 - left-to-right phase
 - second right-to-left phase
-:::
+  :::
