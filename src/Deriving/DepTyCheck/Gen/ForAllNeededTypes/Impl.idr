@@ -113,6 +113,5 @@ runCanonic exts calc = do
                          [| (calc, deriveAll []) |]
                          {stateType=((List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
                          {m=Elab}
-  let derived = sortBy (compare `on` declName . fst) derived
   let (defs, bodies) = unzip derived
   pure (x, defs ++ bodies)
