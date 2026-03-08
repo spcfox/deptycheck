@@ -121,9 +121,8 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  (_, (x, derived)) <- runStateT
-                         (empty, (empty, empty), empty @{TypeInfoOrdByName})
-                         [| (calc, deriveAll []) |]
-                         {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
-                         {m=Elab}
+  (_, x) <- runStateT (empty, (empty, empty), empty @{TypeInfoOrdByName})
+                      calc
+                      {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
+                      {m=Elab}
   pure (x, [])
