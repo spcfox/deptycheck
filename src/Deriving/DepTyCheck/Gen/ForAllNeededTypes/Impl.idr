@@ -42,8 +42,17 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
                                     No _    => Nothing
 
 deriveAll : NamesInfoInTypes => ConsRecs => DeriveBodyForType => DerivationClosure m => ClosuringContext m => Elaboration m =>
-            List (Decl, Decl) -> m $ List (Decl, Decl)
-deriveAll = pure
+            m $ List (Decl, Decl)
+deriveAll = do
+  (toDeriveKnown, _) <- get {stateType=(List _, List _)}
+  for toDeriveKnown deriveOne
+  where
+    deriveOne : (GenSignature, Name) -> m (Decl, Decl)
+    deriveOne (sig, name) = do
+      -- derive declaration and body for the asked signature. It's important to call it AFTER update of the map in the state to not to cycle
+      let genFunClaim = export' name $ canonicSig sig
+      genFunBody <- logBounds Info "deptycheck.derive.type" [sig] $ def name <$> canonicBody sig name
+      pure (genFunClaim, genFunBody)
 
 DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignature (ExternalGenSignature, Name) => DerivationClosure m where
 
@@ -105,7 +114,7 @@ runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
   (_, (x, derived)) <- runStateT
                          (empty, (empty, empty), empty @{TypeInfoOrdByName})
-                         [| (calc, deriveAll []) |]
+                         [| (calc, deriveAll) |]
                          {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
                          {m=Elab}
   pure (x, [])
