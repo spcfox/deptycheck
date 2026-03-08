@@ -24,8 +24,7 @@ import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 
 ClosuringContext : (Type -> Type) -> Type
 ClosuringContext m =
-  ( MonadState  (ListMap GenSignature Name) m                            -- gens already asked to be derived
-  , MonadState  (List (GenSignature, Name), List (GenSignature, Name)) m -- two queues of gens to be derived, one for known types, one the unknown ones
+  ( MonadState  (List (GenSignature, Name), List (GenSignature, Name)) m -- two queues of gens to be derived, one for known types, one the unknown ones
   , MonadState  (SortedSet TypeInfo) m                                   -- type names that were asked for deriving their weighting function
   )
 
@@ -77,16 +76,8 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignatu
 
     -- get the expression of calling the internal gen, derive if necessary
     internalGenCall <- do
-
-      -- look for existing (already derived) internals, use it if exists
-      let Nothing = List.Map.lookup sig !get
-        | Just name => pure $ callCanonic sig name fuel values
-
       -- nothing found, then derive! acquire the name
       let name = nameForGen sig
-
-      -- remember that we're responsible for this signature derivation
-      modify $ List.Map.insert sig name
 
       -- remember the task to derive
       modify {stateType=(List _, List _)} $ if isTypeKnown sig.targetType then mapFst $ (::) (sig, name) else mapSnd $ (::) (sig, name)
@@ -121,10 +112,10 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  ((_, _, weightingFuns), (x, derived)) <- runStateT
-                         (empty, (empty, empty), empty @{TypeInfoOrdByName})
+  ((_, weightingFuns), (x, derived)) <- runStateT
+                         ((empty, empty), empty @{TypeInfoOrdByName})
                          [| (calc, deriveAll []) |]
-                         {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
+                         {stateType=((List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
                          {m=Elab}
   let derived = sortBy (compare `on` declName . fst) $ derived ++ mapMaybe deriveWeightingFun (Prelude.toList weightingFuns)
   let (defs, bodies) = unzip derived
