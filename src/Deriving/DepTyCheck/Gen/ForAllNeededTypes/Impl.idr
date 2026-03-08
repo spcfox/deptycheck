@@ -42,10 +42,16 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
                                     No _    => Nothing
 
 deriveAll : NamesInfoInTypes => ConsRecs => DeriveBodyForType => DerivationClosure m => ClosuringContext m => Elaboration m =>
-            m $ List (Decl, Decl)
-deriveAll = do
-  (toDeriveKnown, _) <- get {stateType=(List _, List _)}
-  for toDeriveKnown deriveOne
+            List (Decl, Decl) -> List (GenSignature, Name) -> List (GenSignature, Name) -> m $ List (Decl, Decl)
+deriveAll acc toDeriveKnown toDeriveUnknown = do
+  derived <- (++ acc) <$> for toDeriveKnown deriveOne
+  if not $ null toDeriveKnown
+    then assert_total deriveAll derived [] toDeriveUnknown
+    else if null toDeriveUnknown
+      then pure derived
+      else do
+        (niit, cr) <- updateNamesAndConsRecs $ targetType . fst <$> toDeriveUnknown
+        assert_total $ deriveAll @{niit} @{cr} derived toDeriveUnknown []
   where
     deriveOne : (GenSignature, Name) -> m (Decl, Decl)
     deriveOne (sig, name) = do
@@ -114,7 +120,10 @@ runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
   (_, (x, derived)) <- runStateT
                          (empty, (empty, empty), empty @{TypeInfoOrdByName})
-                         [| (calc, deriveAll) |]
+                         (do x <- calc
+                             (toDeriveKnown, toDeriveUnknown) <- get {stateType=(List _, List _)}
+                             derived <- deriveAll [] toDeriveKnown toDeriveUnknown
+                             pure (x, derived))
                          {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
                          {m=Elab}
   pure (x, [])
