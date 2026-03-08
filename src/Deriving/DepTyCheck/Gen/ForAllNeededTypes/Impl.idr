@@ -24,9 +24,7 @@ import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 
 ClosuringContext : (Type -> Type) -> Type
 ClosuringContext m =
-  ( MonadState  (List (GenSignature, Name), List (GenSignature, Name)) m -- two queues of gens to be derived, one for known types, one the unknown ones
-  , MonadState  (SortedSet TypeInfo) m                                   -- type names that were asked for deriving their weighting function
-  )
+  MonadState  (List (GenSignature, Name), List (GenSignature, Name)) m -- two queues of gens to be derived, one for known types, one the unknown ones
 
 nameForGen : GenSignature -> Name
 nameForGen sig = let (ty, givs) = characteristics sig in UN $ Basic $ "<\{ty}>\{show givs}"
@@ -63,8 +61,6 @@ deriveAll acc = do
       pure (genFunClaim, genFunBody)
 
 DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignature (ExternalGenSignature, Name) => DerivationClosure m where
-
-  needWeightFun = modify . SortedSet.insert
 
   callGen sig fuel values = do
 
@@ -112,11 +108,11 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  ((_, weightingFuns), (x, derived)) <- runStateT
+  (_, (x, derived)) <- runStateT
                          ((empty, empty), empty @{TypeInfoOrdByName})
                          [| (calc, deriveAll []) |]
                          {stateType=((List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
                          {m=Elab}
-  let derived = sortBy (compare `on` declName . fst) $ derived ++ mapMaybe deriveWeightingFun (Prelude.toList weightingFuns)
+  let derived = sortBy (compare `on` declName . fst) derived
   let (defs, bodies) = unzip derived
   pure (x, defs ++ bodies)
