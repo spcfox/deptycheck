@@ -268,20 +268,7 @@ nameMod : Name -> Name
 nameMod n = UN $ Basic "outer^<\{show n}>"
 
 internalGenCallingLambda : Elaboration m => CheckResult DerivationTask -> TTImp -> m TTImp
-internalGenCallingLambda (sig ** exts ** givsPos) call = do
-    let (givensReordered ** lenCorr) = reorder' sig.givenParams.asList sig.givensOrder
-    let Just args = joinEithersPos givensReordered exts.externals $ rewrite lenCorr in givsPos
-      | Nothing => fail "INTERNAL ERROR: can't join partitioned args back"
-    pure $ foldr mkLam call args
-
-  where
-
-  -- either given param or auto param
-  mkLam : Either (Fin sig.targetType.args.length, ArgExplicitness, Name) (ExternalGenSignature, TTImp) -> TTImp -> TTImp
-  mkLam $ Left (idx, expl, name) = lam $ MkArg MW expl.toTT .| Just (nameMod name) .| implicitTrue -- (index' sig.targetType.args idx).type
-                                                                                   -- ^^^ no type because of `nameMod` above
-  mkLam $ Right (extSig, ty)     = lam $ MkArg MW AutoImplicit .| Just (nameForGen extSig) .| ty
-                                   -- TODO to think whether it's okay to calculate the name twice: here and below for a map
+internalGenCallingLambda (sig ** exts ** givsPos) call = pure `( believe_me () )
 
 callMainDerivedGen : DerivationClosure m => NamesInfoInTypes => ConsRecs => ExternalGenSignature -> (fuelArg : Name) -> m TTImp
 callMainDerivedGen sig fuelArg = do
