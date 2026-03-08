@@ -43,25 +43,7 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
 
 deriveAll : NamesInfoInTypes => ConsRecs => DeriveBodyForType => DerivationClosure m => ClosuringContext m => Elaboration m =>
             List (Decl, Decl) -> m $ List (Decl, Decl)
-deriveAll acc = do
-  (toDeriveKnown, toDeriveUnknown) <- get {stateType=(List _, List _)}
-  put ([], toDeriveUnknown)
-  derived <- (++ acc) <$> for toDeriveKnown deriveOne
-  if not $ null toDeriveKnown
-    then assert_total deriveAll derived
-    else if null toDeriveUnknown
-      then pure derived
-      else do
-        (niit, cr) <- updateNamesAndConsRecs $ targetType . fst <$> toDeriveUnknown
-        put (toDeriveUnknown, [])
-        assert_total $ deriveAll @{niit} @{cr} derived
-  where
-    deriveOne : (GenSignature, Name) -> m (Decl, Decl)
-    deriveOne (sig, name) = do
-      -- derive declaration and body for the asked signature. It's important to call it AFTER update of the map in the state to not to cycle
-      let genFunClaim = export' name $ canonicSig sig
-      genFunBody <- logBounds Info "deptycheck.derive.type" [sig] $ def name <$> canonicBody sig name
-      pure (genFunClaim, genFunBody)
+deriveAll = pure
 
 DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignature (ExternalGenSignature, Name) => DerivationClosure m where
 
@@ -121,8 +103,9 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
-  (_, x) <- runStateT (empty, (empty, empty), empty @{TypeInfoOrdByName})
-                      calc
-                      {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
-                      {m=Elab}
+  (_, (x, derived)) <- runStateT
+                         (empty, (empty, empty), empty @{TypeInfoOrdByName})
+                         [| (calc, deriveAll []) |]
+                         {stateType=(ListMap GenSignature Name, (List (GenSignature, Name), List (GenSignature, Name)), SortedSet TypeInfo)}
+                         {m=Elab}
   pure (x, [])
