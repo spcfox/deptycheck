@@ -50,7 +50,7 @@ DeriveBodyRhsForCon => DeriveBodyForType where
     let consClaims = sig.targetType.cons <&> \con => export' (consGenName con) (canonicSig sig)
 
     -- derive bodies for generators per constructors
-    consBodies <- for sig.targetType.cons $ \con => logBounds Info "deptycheck.derive.consBody" [sig, con] $
+    consBodies <- for sig.targetType.cons $ \con =>
       canonicConsBody sig (consGenName con) con <&> def (consGenName con)
 
     -- calculate which constructors are recursive and spend fuel, and which are not
@@ -86,20 +86,20 @@ DeriveBodyRhsForCon => DeriveBodyForType where
       -- check if there are any non-recursive constructors
       let Nothing = for consRecs $ \(con, w) => (con,) <$> getLeft w
           -- only constantly weighted constructors (usually, non-recursive), thus just call all without spending fuel
-        | Just consRecs => callConstFreqs "\{logPosition sig} (non-spending)".label (var fuelAr) consRecs
+        | Just consRecs => callConstFreqs "(non-spending)".label (var fuelAr) consRecs
 
       -- pattern match on the fuel argument
       iCase .| var fuelAr .| var `{Data.Fuel.Fuel} .|
 
         [ -- if fuel is dry, call all non-recursive constructors on `Dry`
           let nonSpendCons = mapMaybe (\(con, w) => (con,) <$> getLeft w) consRecs in
-          var `{Data.Fuel.Dry}                        .= callConstFreqs "\{logPosition sig} (dry fuel)".label (var fuelAr) nonSpendCons
+          var `{Data.Fuel.Dry}                        .= callConstFreqs "(dry fuel)".label (var fuelAr) nonSpendCons
 
         , do -- if fuel is `More`, call spending constructors on the rest and other on the original fuel
           -- I'm using a name containing chars that cannot be present in the code parsed from the Idris frontend
           let subFuelArg = UN $ Basic $ "^sub" ++ show fuelAr
           let weightAndFuel = either ((var fuelAr,)) (\f => (var subFuelArg, f subFuelArg))
-          var `{Data.Fuel.More} .$ bindVar subFuelArg .= callFrequency "\{logPosition sig} (non-dry fuel)".label
+          var `{Data.Fuel.More} .$ bindVar subFuelArg .= callFrequency "(non-dry fuel)".label
             (consRecs <&> \(con, rec) => let (f, w) = weightAndFuel rec in (w, callConsGen f con))
         ]
 

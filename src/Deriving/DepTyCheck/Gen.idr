@@ -302,8 +302,8 @@ deriveGenExpr signature = do
   checkResult@(signature ** externals ** _) <- checkTypeIsGen DerivationTask signature
   let externalsSigToName = fromList $ externals.externals <&> \(sig, _) => (sig, nameForGen sig)
   let fuelArg = outmostFuelArg
-  _ <- logBounds Trace "deptycheck.derive.namesInfo" [] $ getNamesInfoInTypes signature.targetType
-  _ <- logBounds Trace "deptycheck.derive.consRec" [] getConsRecs
+  _ <- getNamesInfoInTypes signature.targetType
+  _ <- getConsRecs
   (callExpr, locals) <- runCanonic externalsSigToName $ callMainDerivedGen signature fuelArg
   wrapFuel fuelArg <$> internalGenCallingLambda checkResult (local locals callExpr)
 
@@ -372,15 +372,10 @@ deriveGenFor a = do
   check tt
 
 ||| Declares `main : IO Unit` function that prints derived generator for the given generator's signature
-|||
-||| Caution! When `logDerivation` is set to `True`, this function would change the global logging state
-||| and wouldn't turn it back.
 export
-deriveGenPrinter : {default True printTTImp : _} -> {default True logDerivation : _} -> DeriveBodyForType => Type -> Elab Unit
+deriveGenPrinter : {default True printTTImp : _} -> DeriveBodyForType => Type -> Elab Unit
 deriveGenPrinter ty = do
   ty <- quote ty
-  when logDerivation $ declare `[%logging "deptycheck.derive.print" 5; %logging "deptycheck.derive.least-effort" 7]
-  logSugaredTerm "deptycheck.derive.print" (toNatLevel Details) "type" ty
   expr <- deriveGenExpr ty
   expr <- quote expr
   printTTImp <- quote printTTImp

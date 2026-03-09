@@ -13,7 +13,6 @@ import public Deriving.DepTyCheck.Util.Primitives
 
 import public Language.Reflection.Compat
 import public Language.Reflection.Expr
-import public Language.Reflection.Logging
 
 %default total
 
@@ -45,9 +44,6 @@ namespace GenSignature
 public export %inline
 (.generatedParams) : (sig : GenSignature) -> SortedSet $ Fin sig.targetType.args.length
 sig.generatedParams = fromList (allFins sig.targetType.args.length) `difference` sig.givenParams
-
-export
-LogPosition GenSignature where logPosition sig = "\{show $ extractTargetTyExpr sig.targetType}[\{showGivens sig}]"
 
 public export
 Eq GenSignature where (==) = (==) `on` characteristics

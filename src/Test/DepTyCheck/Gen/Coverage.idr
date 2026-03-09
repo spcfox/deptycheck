@@ -16,7 +16,6 @@ import Data.Singleton
 import Data.SortedMap
 
 import public Language.Reflection.Compat.TypeInfo
-import public Language.Reflection.Logging
 
 import Test.DepTyCheck.Gen
 
@@ -201,7 +200,7 @@ toString col cgi = (++ "\n") $ joinBy "\n\n" $
   joinBy "\n" $ (::) "\{showType col ti} \{tyCovStr}" $ whenTs anyCons $ map ("  - " ++) $
     SortedMap.toList cons <&> \(co, coCovCnt) => do
       let status : String := if coCovCnt /= 0 then c BrightGreen "covered" ++ cntAddition coCovCnt else c BrightRed "not covered"
-      "\{logPosition co}: \{status}"
+      "\{status}"
 
 export
 Show (CoverageGenInfo g) where show = toString False

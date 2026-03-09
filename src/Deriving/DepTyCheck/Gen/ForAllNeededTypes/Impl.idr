@@ -60,7 +60,7 @@ deriveAll acc = do
     deriveOne (sig, name) = do
       -- derive declaration and body for the asked signature. It's important to call it AFTER update of the map in the state to not to cycle
       let genFunClaim = export' name $ canonicSig sig
-      genFunBody <- logBounds Info "deptycheck.derive.type" [sig] $ def name <$> canonicBody sig name
+      genFunBody <- def name <$> canonicBody sig name
       pure (genFunClaim, genFunBody)
 
 DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignature (ExternalGenSignature, Name) => DerivationClosure m where
@@ -72,8 +72,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignatu
     -- look for external gens, and call it if exists
     let Nothing = lookupLengthChecked sig %search
       | Just (name, Element extSig lenEq) =>
-          logValue Details "deptycheck.derive.closuring.external" [sig] "is used as an external generator" $
-            (callExternalGen extSig name (var outmostFuelArg) $ rewrite lenEq in values, Just (_ ** extSig.gendOrder))
+          pure (callExternalGen extSig name (var outmostFuelArg) $ rewrite lenEq in values, Just (_ ** extSig.gendOrder))
 
     -- get the expression of calling the internal gen, derive if necessary
     internalGenCall <- do
@@ -95,8 +94,7 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignatu
       pure $ callCanonic sig name fuel values
 
     -- call the internal gen
-    logValue DetailedDebug "deptycheck.derive.closuring.internal" [sig] "is used as an internal generator"
-      (internalGenCall, Nothing)
+    pure (internalGenCall, Nothing)
 
 --- Canonic-dischagring function ---
 
