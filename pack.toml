@@ -1,3 +1,7 @@
+[idris2]
+url = "https://github.com/spcfox/idris2.git"
+commit = "495af685d61dfbc676bb4a25948cf2f358bfd83a"
+
 ################
 ### Settings ###
 ################
