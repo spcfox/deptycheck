@@ -155,9 +155,7 @@ hasNameInsideDeep @{tyi} nm = hasInside empty . allVarNames where
 
 export
 isRecursive : NamesInfoInTypes => (con : Con) -> {default Nothing containingType : Maybe TypeInfo} -> Bool
-isRecursive con = case the (Maybe TypeInfo) $ containingType <|> typeByCon con of
-  Just containingType => any (hasNameInsideDeep containingType.name) $ conSubexprs con
-  Nothing             => False
+isRecursive con = False
 
 -- returns `Nothing` if given name is not a constructor
 export
