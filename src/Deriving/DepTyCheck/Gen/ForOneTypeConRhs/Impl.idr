@@ -7,7 +7,7 @@ import public Control.Monad.State.Tuple
 import public Data.Collections.Analysis
 import public Data.Either
 import public Data.Fin.Map
-import public Data.SortedSet.Extra
+import public Data.SortedSet.Monad
 import public Data.Vect.Ex
 
 import public Decidable.Equality
@@ -283,7 +283,7 @@ export
             | No _ => fail "INTERNAL ERROR: error in given params set length computation"
 
           -- Check if called subgenerator can call the current one
-          let mutRec = hasNameInsideDeep sig.targetType.name $ var subsig.targetType.name
+          mutRec <- hasNameInsideDeep sig.targetType.name $ var subsig.targetType.name
 
           -- Decide whether to use local (decreasing) or outmost fuel, depending on whether we are in mutual recursion with subgen
           let subfuel = if mutRec then fuel else var outmostFuelArg

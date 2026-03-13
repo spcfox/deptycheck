@@ -19,7 +19,9 @@ depends = collection-utils
         , mk
         , mtl-tuple-impls
 
-modules = Deriving.SpecialiseData
+modules = Data.SortedMap.Monad
+        , Data.SortedSet.Monad
+        , Deriving.SpecialiseData
         , Language.Reflection.Compat
         , Language.Reflection.Compat.Constr
         , Language.Reflection.Compat.TypeInfo

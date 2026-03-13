@@ -3,12 +3,9 @@ module Deriving.DepTyCheck.Gen.ConsRecs
 import public Data.Alternative
 import public Data.Fuel
 import public Data.List.Ex
-import public Data.List.Map
 import public Data.Nat1
-import public Data.SortedMap
-import public Data.SortedMap.Extra
-import public Data.SortedSet
-import public Data.SortedSet.Extra
+import public Data.SortedMap.Monad
+import public Data.SortedSet.Monad
 
 import public Deriving.DepTyCheck.Gen.Signature
 import public Deriving.DepTyCheck.Gen.Tuning
@@ -19,6 +16,13 @@ import public Language.Reflection.Logging
 import public Syntax.IHateParens.Function
 
 %default total
+
+%hide SortedMap.insert
+%hide SortedMap.insert'
+%hide SortedMap.mergeLeft
+%hide SortedSet.insert
+%hide SortedSet.insert'
+%hide SortedSet.toList
 
 ----------------------------------
 --- Constructors recursiveness ---
@@ -86,8 +90,8 @@ record ConsRecs where
   constructor MkConsRecs
   consRecs : SortedMap Name TyConsRec
 
-Semigroup ConsRecs where
-  MkConsRecs cw <+> MkConsRecs cw' = MkConsRecs $ cw `mergeLeft` cw'
+(<+>) : Monad m => ConsRecs -> ConsRecs -> m ConsRecs
+(<+>) (MkConsRecs cw) (MkConsRecs cw') = map MkConsRecs $ cw `mergeLeftM` cw'
 
 -------------------------------------
 --- Getting (deriving) `ConsRecs` ---
@@ -158,7 +162,7 @@ finCR (MkTyConsRec ti wTyArgs cons) givenTyArgs = do
     guard $ not $ null wTyArgs
     -- If for any weightable type argument (in `wTyArgs`) there exists a directly recursive constructor arg (in `directRecConArgs`) that has
     -- this type argument strictly decreasing, we consider this constructor to be non-fuel-spending.
-    let conArgNames = SortedSet.fromList $ mapMaybe name con.args
+    conArgNames <- fromListM $ mapMaybe name con.args
     (decrTy, weightExpr) <- foldAlt' wTyArgs.asList $ \(wTyArg, weightTy, weightArgName) => map (weightTy,) $ do
       let wTyArg = finToNat wTyArg
       conRetTyArg <- getExpr <$> getAt wTyArg conRetTyArgs
@@ -174,12 +178,12 @@ weightableTyArgs consRecs ti = fromList $ flip List.mapMaybe ti.args.withIdx $ \
   getAppVar ar.type >>= lookup' consRecs >>= \(wti, cons) => guard (weightableTy cons) >> (idx, wti,) <$> ar.name
 
 -- Builds `ConsRecs` only for the given types, assuming that given `NamesInfoInTypes` contains info for them and their dependencies
-getConsRecsFor : NamesInfoInTypes => Elaboration m => (desiredTypes : ListMap Name TypeInfo) -> m ConsRecs
+getConsRecsFor : NamesInfoInTypes => Elaboration m => (desiredTypes : SortedMap Name TypeInfo) -> m ConsRecs
 getConsRecsFor desiredTypes = do
-  consRecs <- for (toSortedMap desiredTypes) $ \targetType => logBounds DetailedTrace "deptycheck.derive.consRec" [targetType] $ do
+  consRecs <- for desiredTypes $ \targetType => logBounds DetailedTrace "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
       tuneImpl <- search $ ProbabilityTuning con.name
-      w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive {containingType=Just targetType} con of
+      w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case !(isRecursive {containingType=Just targetType} con) of
         --             ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^ <- set of directly recursive constructor arguments
         --                    \------ Modifier of the standard weight expression
         False => pure $ Left $ maybe one (\impl => tuneWeight @{impl} one) tuneImpl
@@ -198,8 +202,9 @@ getConsRecsFor desiredTypes = do
     pure (targetType, crsForTy)
   let 0 _ : SortedMap Name (TypeInfo, List ConRec) := consRecs
 
-  pure $ MkConsRecs $ mapWithKey' consRecs $ \tyName, (ti, cons) => do
+  res <- pure $ mapWithKey' consRecs $ \tyName, (ti, cons) => do
     MkTyConsRec ti (weightableTyArgs consRecs ti) cons
+  pure $ MkConsRecs res
 
 export
 getConsRecs : NamesInfoInTypes => Elaboration m => m ConsRecs
@@ -224,7 +229,7 @@ isTypeKnown @{MkConsRecs crs} ti = isJust $ lookup ti.name crs
 -- it'll get the updated `NamesInfoInTypes` and a `ConsRecs` equivalent to those being built from this `NamesInfoInTypes`, but more effective.
 export
 updateNamesAndConsRecs : NamesInfoInTypes => ConsRecs => Elaboration m => List TypeInfo -> m (NamesInfoInTypes, ConsRecs)
-updateNamesAndConsRecs @{niit} @{crs} tis = do
-  newNiit <- logBounds Trace "deptycheck.derive.namesInfo.update" [] $ enrichNamesInfoInTypes tis niit
-  newCr <- logBounds Trace "deptycheck.derive.consRec.update" [] $ map (crs <+>) $ getConsRecsFor @{newNiit} $ fromList $ tis <&> \ti => (ti.name, ti)
-  pure (newNiit, newCr)
+-- updateNamesAndConsRecs @{niit} @{crs} tis = do
+--   newNiit <- logBounds Trace "deptycheck.derive.namesInfo.update" [] $ enrichNamesInfoInTypes tis niit
+--   newCr <- logBounds Trace "deptycheck.derive.consRec.update" [] $ map (crs <+>) $ getConsRecsFor @{newNiit} $ fromList $ tis <&> \ti => (ti.name, ti)
+--   pure (newNiit, newCr)

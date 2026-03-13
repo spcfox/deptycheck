@@ -1,9 +1,7 @@
 module Language.Reflection.Compat.TypeInfo
 
-import Data.List.Map
-import Data.List.Set
-import Data.SortedMap
-import Data.SortedSet
+import Data.SortedMap.Monad
+import Data.SortedSet.Monad
 
 import public Language.Reflection.Compat.Constr
 import public Language.Reflection.Expr
@@ -11,6 +9,14 @@ import public Language.Reflection.Expr
 import public Syntax.IHateParens.SortedSet
 
 %default total
+
+%hide SortedMap.insert
+%hide SortedMap.insert'
+%hide SortedMap.mergeLeft
+%hide SortedMap.fromList
+%hide SortedSet.insert
+%hide SortedSet.insert'
+%hide SortedSet.toList
 
 --------------------------------------------------------
 --- Acquiring special representations from type info ---
@@ -41,7 +47,7 @@ allInvolvedTypes minimalRig ti = toList <$> go [ti] empty where
   go left curr = do
     let (c::left) = filter (not . isJust . lookup' curr . name) left
       | [] => pure curr
-    let next = insert c.name c curr
+    next <- insertM c.name c curr
     args <- atRig M0 $ join <$> for c.args typesOfArg
     cons <- join <$> for c.tyCons typesOfCon
     assert_total $ go (args ++ cons ++ left) next
@@ -84,9 +90,9 @@ normaliseCons ty = for ty.cons normaliseCon <&> \cons' => {cons := cons'} ty
 export
 record NamesInfoInTypes where
   constructor Names
-  types : ListMap Name TypeInfo
-  cons  : ListMap Name (TypeInfo, Con)
-  namesInTypes : ListMap TypeInfo $ SortedSet Name
+  types : SortedMap Name TypeInfo
+  cons  : SortedMap Name (TypeInfo, Con)
+  namesInTypes : SortedMap TypeInfo $ SortedSet Name
 
 lookupByType : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
 lookupByType @{tyi} = lookup' tyi.types >=> lookup' tyi.namesInTypes
@@ -107,7 +113,7 @@ lookupCon @{tyi} n = snd <$> lookup n tyi.cons
                  <|> typeCon <$> lookup n tyi.types
 
 export
-knownTypes : NamesInfoInTypes => ListMap Name TypeInfo
+knownTypes : NamesInfoInTypes => SortedMap Name TypeInfo
 knownTypes @{tyi} = tyi.types
 
 ||| Returns either resolved expression, or a non-unique name and the set of alternatives.
@@ -134,65 +140,67 @@ export
 [TypeInfoOrdByName] Ord TypeInfo using TypeInfoEqByName where
   compare = comparing name
 
+empty : NamesInfoInTypes
+empty = let _ = TypeInfoOrdByName in Names empty empty empty
+
+(<+>) : Monad m => NamesInfoInTypes -> NamesInfoInTypes -> m NamesInfoInTypes
+(<+>) (Names ts cs nit) (Names ts' cs' nit') =
+  pure $ Names !(ts `mergeLeftM` ts') !(cs `mergeLeftM` cs') !(nit `mergeLeftM` nit')
+
 export
-Semigroup NamesInfoInTypes where
-  Names ts cs nit <+> Names ts' cs' nit' = Names (ts `mergeLeft` ts') (cs `mergeLeft` cs') (nit <+> nit')
+hasNameInsideDeep : Monad m => NamesInfoInTypes => Name -> TTImp -> m Bool
+hasNameInsideDeep nm = hasInside empty . allVarNames where
 
-Monoid NamesInfoInTypes where
-  neutral = let _ = TypeInfoEqByName
-             in Names empty empty empty
-
-export
-hasNameInsideDeep : NamesInfoInTypes => Name -> TTImp -> Bool
-hasNameInsideDeep @{tyi} nm = hasInside empty . allVarNames where
-
-  hasInside : (visited : SortedSet Name) -> (toLook : List Name) -> Bool
-  hasInside visited []           = False
-  hasInside visited (curr::rest) = if curr == nm then True else do
-    let new = if contains curr visited then [] else maybe [] Prelude.toList $ lookupByType curr
+  hasInside : (visited : SortedSet Name) -> (toLook : List Name) -> m Bool
+  hasInside visited []           = pure False
+  hasInside visited (curr::rest) = if curr == nm then pure True else do
+    let new : List Name = if contains curr visited then [] else maybe [] Prelude.toList $ lookupByType curr
     -- visited is limited and either growing or `new` is empty, thus `toLook` is strictly less
-    assert_total $ hasInside (insert curr visited) (new ++ rest)
+    visited' <- insertM curr visited
+    assert_total $ hasInside visited' (new ++ rest)
+    -- pure $ assert_total $ hasInside visited' (new ++ rest)
 
 export
-isRecursive : NamesInfoInTypes => (con : Con) -> {default Nothing containingType : Maybe TypeInfo} -> Bool
+isRecursive : Monad m => NamesInfoInTypes => (con : Con) -> {default Nothing containingType : Maybe TypeInfo} -> m Bool
 isRecursive con = case the (Maybe TypeInfo) $ containingType <|> typeByCon con of
-  Just containingType => any (hasNameInsideDeep containingType.name) $ conSubexprs con
-  Nothing             => False
+  Just containingType => anyM (hasNameInsideDeep containingType.name) $ conSubexprs con
+  Nothing             => pure False
 
 -- returns `Nothing` if given name is not a constructor
 export
-isRecursiveConstructor : NamesInfoInTypes => Name -> Maybe Bool
-isRecursiveConstructor @{tyi} n = lookup' tyi.cons n <&> \(ty, con) => isRecursive {containingType=Just ty} con
+isRecursiveConstructor : Monad m => (tyi : NamesInfoInTypes) => Name -> m $ Maybe Bool
+isRecursiveConstructor n = for (lookup' tyi.cons n) $ \(ty, con) => isRecursive {containingType=Just ty} con
 
 export
 enrichNamesInfoInTypes : Elaboration m => List TypeInfo -> NamesInfoInTypes -> m NamesInfoInTypes
 enrichNamesInfoInTypes []         tyi = pure tyi
 enrichNamesInfoInTypes (ti::rest) tyi = do
   ti <- normaliseCons ti
-  let subes = concatMap allVarNames' $ subexprs ti
-  new <- map join $ for (Prelude.toList subes) $ \n =>
+  subes <- concatMap allVarNames' <$> subexprs ti
+  new : List TypeInfo <- map join $ for !(toListM subes) $ \n =>
            if isNothing $ lookupByType n
              then map toList $ catch $ getInfo' n
              else pure []
-  let next = { types $= insert ti.name ti
-             , namesInTypes $= insert ti subes
-             , cons $= mergeLeft $ fromList $ ti.cons <&> \con => (con.name, ti, con)
-             } tyi
-  assert_total $ enrichNamesInfoInTypes (new ++ rest) next
+  nextTyeps <- insertM ti.name ti tyi.types
+  nextNamesInTypes <- insertM ti subes tyi.namesInTypes
+  nextCons <- mergeLeftM !(fromListM $ ti.cons <&> \con => (con.name, ti, con)) tyi.cons
+  assert_total $ enrichNamesInfoInTypes (new ++ rest) $ Names nextTyeps nextCons nextNamesInTypes
   where
-    subexprs : TypeInfo -> List TTImp
-    subexprs ty = map type ty.args ++ (ty.cons >>= conSubexprs)
+    subexprs : TypeInfo -> m $ List TTImp
+    subexprs ty = pure $ map type ty.args ++ (ty.cons >>= conSubexprs)
 
 export
 getNamesInfoInTypes : Elaboration m => TypeInfo -> m NamesInfoInTypes
-getNamesInfoInTypes ty = enrichNamesInfoInTypes [ty] neutral
+getNamesInfoInTypes ty = enrichNamesInfoInTypes [ty] empty
 
 export
 getNamesInfoInTypes' : Elaboration m => TTImp -> m NamesInfoInTypes
 getNamesInfoInTypes' expr = do
   let varsFirstOrder = allVarNames expr
-  varsSecondOrder <- map concat $ for varsFirstOrder $ \n => do
-                       ns <- getType n
-                       pure $ SortedSet.insert n $ flip concatMap ns $ \(n', ty) => insert n' $ allVarNames' ty
+  varsSecondOrder : SortedSet Name <- foldlM (<+>) SortedSet.empty !(for varsFirstOrder $ \n => do
+                          ns <- getType n
+                          vars <- foldlM (<+>) empty $ !(for ns $ \(n', ty) => insertM n' $ allVarNames' ty)
+                          insertM n vars)
   tys <- map (mapMaybe id) $ for (Prelude.toList varsSecondOrder) $ catch . getInfo'
-  concat <$> Prelude.for tys getNamesInfoInTypes
+  infos <- Prelude.for tys getNamesInfoInTypes
+  foldlM (<+>) empty infos

@@ -3,9 +3,8 @@ module Deriving.DepTyCheck.Gen.Signature
 import public Data.DPair
 import public Data.Fin
 import public Data.List.Ex
-import public Data.SortedMap
+import public Data.SortedMap.Monad
 import public Data.SortedMap.Dependent
-import public Data.SortedMap.Extra
 import public Data.SortedSet
 
 import public Deriving.DepTyCheck.Util.ArgsPerm
