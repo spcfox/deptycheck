@@ -23,6 +23,7 @@ modules = Deriving.SpecialiseData
         , Language.Reflection.Compat
         , Language.Reflection.Compat.Constr
         , Language.Reflection.Compat.TypeInfo
+        , Language.Reflection.Compat.Recursive
         , Language.Reflection.Expr
         , Language.Reflection.Expr.Interpolation
         , Language.Reflection.Logging

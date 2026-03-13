@@ -14,6 +14,7 @@ import public Deriving.DepTyCheck.Gen.Signature
 import public Deriving.DepTyCheck.Gen.Tuning
 
 import public Language.Reflection.Compat.TypeInfo
+import public Language.Reflection.Compat.Recursive
 import public Language.Reflection.Logging
 
 import public Syntax.IHateParens.Function
@@ -174,7 +175,7 @@ weightableTyArgs consRecs ti = fromList $ flip List.mapMaybe ti.args.withIdx $ \
   getAppVar ar.type >>= lookup' consRecs >>= \(wti, cons) => guard (weightableTy cons) >> (idx, wti,) <$> ar.name
 
 -- Builds `ConsRecs` only for the given types, assuming that given `NamesInfoInTypes` contains info for them and their dependencies
-getConsRecsFor : NamesInfoInTypes => Elaboration m => (desiredTypes : ListMap Name TypeInfo) -> m ConsRecs
+getConsRecsFor : NamesInfoInTypes => RecursiveCons =>Elaboration m => (desiredTypes : ListMap Name TypeInfo) -> m ConsRecs
 getConsRecsFor desiredTypes = do
   consRecs <- for (toSortedMap desiredTypes) $ \targetType => logBounds DetailedTrace "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
@@ -202,7 +203,7 @@ getConsRecsFor desiredTypes = do
     MkTyConsRec ti (weightableTyArgs consRecs ti) cons
 
 export
-getConsRecs : NamesInfoInTypes => Elaboration m => m ConsRecs
+getConsRecs : NamesInfoInTypes => RecursiveCons => Elaboration m => m ConsRecs
 getConsRecs = getConsRecsFor knownTypes
 
 export
@@ -223,7 +224,7 @@ isTypeKnown @{MkConsRecs crs} ti = isJust $ lookup ti.name crs
 -- Having a `ConsRecs` being built from the given `NamesInfoInTypes`,
 -- it'll get the updated `NamesInfoInTypes` and a `ConsRecs` equivalent to those being built from this `NamesInfoInTypes`, but more effective.
 export
-updateNamesAndConsRecs : NamesInfoInTypes => ConsRecs => Elaboration m => List TypeInfo -> m (NamesInfoInTypes, ConsRecs)
+updateNamesAndConsRecs : NamesInfoInTypes => ConsRecs => RecursiveCons => Elaboration m => List TypeInfo -> m (NamesInfoInTypes, ConsRecs)
 updateNamesAndConsRecs @{niit} @{crs} tis = do
   newNiit <- logBounds Trace "deptycheck.derive.namesInfo.update" [] $ enrichNamesInfoInTypes tis niit
   newCr <- logBounds Trace "deptycheck.derive.consRec.update" [] $ map (crs <+>) $ getConsRecsFor @{newNiit} $ fromList $ tis <&> \ti => (ti.name, ti)

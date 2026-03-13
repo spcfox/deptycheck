@@ -303,6 +303,7 @@ deriveGenExpr signature = do
   let externalsSigToName = fromList $ externals.externals <&> \(sig, _) => (sig, nameForGen sig)
   let fuelArg = outmostFuelArg
   _ <- logBounds Trace "deptycheck.derive.namesInfo" [] $ getNamesInfoInTypes signature.targetType
+  _ <- logBounds Trace "deptycheck.derive.recursiveCons" [] $ getRecursiveCons
   _ <- logBounds Trace "deptycheck.derive.consRec" [] getConsRecs
   (callExpr, locals) <- runCanonic externalsSigToName $ callMainDerivedGen signature fuelArg
   wrapFuel fuelArg <$> internalGenCallingLambda checkResult (local locals callExpr)

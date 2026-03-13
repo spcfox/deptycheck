@@ -33,7 +33,7 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
                                     Yes prf => Just $ Element extSig prf
                                     No _    => Nothing
 
-deriveAll : NamesInfoInTypes => ConsRecs => (cc : ClosuringContext m) => DeriveBodyForType => DerivationClosure m => Elaboration m =>
+deriveAll : NamesInfoInTypes => ConsRecs => RecursiveCons => (cc : ClosuringContext m) => DeriveBodyForType => DerivationClosure m => Elaboration m =>
             ListSet TypeInfo -> List (Decl, Decl) -> m (ListSet TypeInfo, List (Decl, Decl))
 deriveAll weightFunTys decls {cc=(alreadyDerived, _)}= do
   (toDeriveKnown, toDeriveUnknown) <- mapHom ((`difference` alreadyDerived) . normalise) <$> get {stateType=(ListSet _, ListSet _)}
@@ -95,7 +95,7 @@ declName $ ILog {} = "Z"
 declName $ IBuiltin _ _ nm = show nm
 
 export
-runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
+runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs => RecursiveCons =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)

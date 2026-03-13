@@ -107,6 +107,10 @@ export
 knownTypes : NamesInfoInTypes => ListMap Name TypeInfo
 knownTypes @{tyi} = tyi.types
 
+export
+getNamesInTypes : NamesInfoInTypes => SortedMap Name $ SortedSet Name
+getNamesInTypes @{tyi} = toSortedMap tyi.namesInTypes
+
 ||| Returns either resolved expression, or a non-unique name and the set of alternatives.
 -- We could use `Validated (SortedMap Name $ SortedSet Name) TTImp` as the result, if we depended on `contrib`.
 -- NOTICE: this function does not resolve re-export aliases, say, it does not resolve `Prelude.Nil` to `Prelude.Basics.Nil`.
@@ -148,10 +152,6 @@ isReacheable nm = hasInside empty . maybe [] Prelude.toList . lookupByType where
     let new = if contains curr visited then [] else maybe [] Prelude.toList $ lookupByType curr
     -- visited is limited and either growing or `new` is empty, thus `toLook` is strictly less
     assert_total $ hasInside (insert curr visited) (new ++ rest)
-
-export
-isRecursive : NamesInfoInTypes => (con : Con) -> Bool
-isRecursive con = isReacheable con.name con.name
 
 export
 enrichNamesInfoInTypes : Elaboration m => List TypeInfo -> NamesInfoInTypes -> m NamesInfoInTypes
