@@ -86,13 +86,10 @@ record NamesInfoInTypes where
   constructor Names
   types : ListMap Name TypeInfo
   cons  : ListMap Name (TypeInfo, Con)
-  namesInTypes : ListMap TypeInfo $ SortedSet Name
+  namesInTypes : ListMap Name $ SortedSet Name
 
 lookupByType : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
-lookupByType @{tyi} = lookup' tyi.types >=> lookup' tyi.namesInTypes
-
-lookupByCon : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
-lookupByCon @{tyi} = concatMap @{Deep} lookupByType . Prelude.toList . concatMap allVarNames' . conSubexprs . snd <=< lookup' tyi.cons
+lookupByType @{tyi} = lookup' tyi.namesInTypes
 
 typeByCon : NamesInfoInTypes => Con -> Maybe TypeInfo
 typeByCon @{tyi} = map fst . lookup' tyi.cons . name
@@ -143,9 +140,8 @@ Monoid NamesInfoInTypes where
              in Names empty empty empty
 
 export
-hasNameInsideDeep : NamesInfoInTypes => Name -> TTImp -> Bool
-hasNameInsideDeep @{tyi} nm = hasInside empty . allVarNames where
-
+isReacheable : NamesInfoInTypes => Name -> Name -> Bool
+isReacheable nm = hasInside empty . maybe [] Prelude.toList . lookupByType where
   hasInside : (visited : SortedSet Name) -> (toLook : List Name) -> Bool
   hasInside visited []           = False
   hasInside visited (curr::rest) = if curr == nm then True else do
@@ -154,15 +150,8 @@ hasNameInsideDeep @{tyi} nm = hasInside empty . allVarNames where
     assert_total $ hasInside (insert curr visited) (new ++ rest)
 
 export
-isRecursive : NamesInfoInTypes => (con : Con) -> {default Nothing containingType : Maybe TypeInfo} -> Bool
-isRecursive con = case the (Maybe TypeInfo) $ containingType <|> typeByCon con of
-  Just containingType => any (hasNameInsideDeep containingType.name) $ conSubexprs con
-  Nothing             => False
-
--- returns `Nothing` if given name is not a constructor
-export
-isRecursiveConstructor : NamesInfoInTypes => Name -> Maybe Bool
-isRecursiveConstructor @{tyi} n = lookup' tyi.cons n <&> \(ty, con) => isRecursive {containingType=Just ty} con
+isRecursive : NamesInfoInTypes => (con : Con) -> Bool
+isRecursive con = isReacheable con.name con.name
 
 export
 enrichNamesInfoInTypes : Elaboration m => List TypeInfo -> NamesInfoInTypes -> m NamesInfoInTypes
@@ -171,19 +160,20 @@ enrichNamesInfoInTypes (ti::rest) tyi = do
   let Nothing = lookupType ti.name
     | _ => enrichNamesInfoInTypes rest tyi
   ti <- normaliseCons ti
-  let subes = concatMap allVarNames' $ subexprs ti
-  new <- map join $ for (Prelude.toList subes) $ \n =>
+  let subesCons = ti.cons <&> \con => (con.name, occursInCon con)
+  let subesTy = concatMap allVarNames $ map type ti.args
+  new <- map join $ for (subesTy ++ concatMap (Prelude.toList . snd) subesCons) $ \n =>
            if isNothing $ lookupByType n
              then map toList $ catch $ getInfo' n
              else pure []
   let next = { types $= insert ti.name ti
-             , namesInTypes $= insert ti subes
              , cons $= mergeLeft $ fromList $ ti.cons <&> \con => (con.name, ti, con)
+             , namesInTypes $= mergeLeft $ fromList $ (ti.name, fromList $ name <$> ti.cons) :: subesCons
              } tyi
   assert_total $ enrichNamesInfoInTypes (new ++ rest) next
   where
-    subexprs : TypeInfo -> List TTImp
-    subexprs ty = map type ty.args ++ (ty.cons >>= conSubexprs)
+    occursInCon : Con -> SortedSet Name
+    occursInCon = concatMap allVarNames' . conSubexprs
 
 export
 getNamesInfoInTypes : Elaboration m => TypeInfo -> m NamesInfoInTypes

@@ -179,7 +179,7 @@ getConsRecsFor desiredTypes = do
   consRecs <- for (toSortedMap desiredTypes) $ \targetType => logBounds DetailedTrace "deptycheck.derive.consRec" [targetType] $ do
     crsForTy <- for targetType.cons $ \con => do
       tuneImpl <- search $ ProbabilityTuning con.name
-      w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive {containingType=Just targetType} con of
+      w : Either Nat1 (TTImp -> TTImp, SortedSet $ Fin con.args.length) <- case isRecursive con of
         --             ^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^ <- set of directly recursive constructor arguments
         --                    \------ Modifier of the standard weight expression
         False => pure $ Left $ maybe one (\impl => tuneWeight @{impl} one) tuneImpl
