@@ -26,6 +26,10 @@ anyM : Monad m => (a -> m Bool) -> List a -> m Bool
 anyM f [] = pure False
 anyM f (x :: xs) = if !(f x) then pure True else anyM f xs
 
-export
+public export %inline
+unionM : Monad m => SortedSet a -> SortedSet a -> m (SortedSet a)
+unionM s1 s2 = pure $ s1 `union` s2
+
+export %inline
 (<+>) : Monad m => Ord a => SortedSet a -> SortedSet a -> m (SortedSet a)
 (<+>) s1 s2 = pure $ s1 <+> s2

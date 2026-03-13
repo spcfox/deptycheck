@@ -4,8 +4,8 @@ module Deriving.DepTyCheck.Gen.ForAllNeededTypes.Impl
 import public Control.Monad.State
 
 import public Data.DPair
-import public Data.List.Set
-import public Data.SortedMap
+import public Data.SortedSet.Monad
+import public Data.SortedMap.Monad
 
 import public Decidable.Equality
 
@@ -13,12 +13,19 @@ import public Deriving.DepTyCheck.Gen.ForOneType.Interface
 
 %default total
 
+%hide SortedMap.insert
+%hide SortedMap.insert'
+%hide SortedMap.mergeLeft
+%hide SortedSet.insert
+%hide SortedSet.insert'
+%hide SortedSet.toList
+
 --- Particular implementations producing the-core-derivation-function closure ---
 
 ClosuringContext : (Type -> Type) -> Type
 ClosuringContext m =
-  ( ListSet GenSignature                                                 -- gens already asked to be derived
-  , MonadState  (ListSet GenSignature, ListSet GenSignature) m           -- two queues of gens to be derived, one for known types, one the unknown ones
+  ( SortedSet GenSignature                                                 -- gens already asked to be derived
+  , MonadState  (SortedSet GenSignature, SortedSet GenSignature) m           -- two queues of gens to be derived, one for known types, one the unknown ones
   )
 
 nameForGen : GenSignature -> Name
@@ -34,15 +41,17 @@ lookupLengthChecked intSig m = lookup intSig m >>= \(extSig, name) => (name,) <$
                                     No _    => Nothing
 
 deriveAll : NamesInfoInTypes => ConsRecs => (cc : ClosuringContext m) => DeriveBodyForType => DerivationClosure m => Elaboration m =>
-            ListSet TypeInfo -> List (Decl, Decl) -> m (ListSet TypeInfo, List (Decl, Decl))
+            SortedSet TypeInfo -> List (Decl, Decl) -> m (SortedSet TypeInfo, List (Decl, Decl))
 deriveAll weightFunTys decls {cc=(alreadyDerived, _)}= do
-  (toDeriveKnown, toDeriveUnknown) <- mapHom ((`difference` alreadyDerived) . normalise) <$> get {stateType=(ListSet _, ListSet _)}
+  (toDeriveKnown, toDeriveUnknown) <- mapHom (`difference` alreadyDerived) <$> get {stateType=(SortedSet _, SortedSet _)}
   put (empty, toDeriveUnknown)
-  (weightFunTys, decls) <- bimap (foldl insert' weightFunTys . join) (decls ++) . unzip <$> for (toList toDeriveKnown) deriveOne
+  (infos, derivedDecls) <- unzip <$> for (toList toDeriveKnown) deriveOne
+  let _ = TypeInfoOrdByName
+  weightFunTys <- unionM weightFunTys !(fromListM $ concat infos)
   if not $ null toDeriveKnown
     then assert_total $ deriveAll {cc=(alreadyDerived `union` toDeriveKnown, %search)} weightFunTys decls
     else if null toDeriveUnknown
-      then pure (weightFunTys, decls)
+      then pure (weightFunTys, decls ++ derivedDecls)
       else do
         (niit, cr) <- updateNamesAndConsRecs $ targetType <$> toList toDeriveUnknown
         put (toDeriveUnknown, empty)
@@ -67,10 +76,14 @@ DeriveBodyForType => ClosuringContext m => Elaboration m => SortedMap GenSignatu
             (callExternalGen extSig name (var outmostFuelArg) $ rewrite lenEq in values, Just (_ ** extSig.gendOrder))
 
     -- put to derivation queue if necessary
-    when (not $ List.Set.contains sig %search) $ do
+    when (not $ SortedSet.contains sig %search) $ do
 
       -- remember the task to derive
-      modify $ if isTypeKnown sig.targetType then mapFst $ normalise . List.Set.insert sig else mapSnd $ normalise . List.Set.insert sig
+      (known, unknown) <- get
+      tasks' <- if isTypeKnown sig.targetType
+                   then (,unknown) <$> insertM sig known
+                   else (known,) <$> insertM sig unknown
+      put tasks'
 
     -- call the internal gen
     logValue DetailedDebug "deptycheck.derive.closuring.internal" [sig] "is used as an internal generator"
@@ -99,10 +112,11 @@ runCanonic : DeriveBodyForType => NamesInfoInTypes => ConsRecs =>
              SortedMap ExternalGenSignature Name -> (forall m. DerivationClosure m => m a) -> Elab (a, List Decl)
 runCanonic exts calc = do
   let exts = SortedMap.fromList $ exts.asList <&> \namedSig => (fst $ internalise $ fst namedSig, namedSig)
+  let asked : SortedSet GenSignature = empty
   (x, weightingFuns, derived) <- evalStateT
                          (empty, empty)
-                         [| (calc, deriveAll (empty @{TypeInfoEqByName}) []) |]
-                         {stateType=(ListSet GenSignature, ListSet GenSignature)}
+                         [| (calc, deriveAll (empty @{TypeInfoOrdByName}) []) |]
+                         {stateType=(SortedSet GenSignature, SortedSet GenSignature)}
                          {m=Elab}
   let derived = sortBy (compare `on` declName . fst) $ derived ++ mapMaybe deriveWeightingFun (Prelude.toList weightingFuns)
   let (defs, bodies) = unzip derived
