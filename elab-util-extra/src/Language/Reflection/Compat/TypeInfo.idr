@@ -168,6 +168,8 @@ export
 enrichNamesInfoInTypes : Elaboration m => List TypeInfo -> NamesInfoInTypes -> m NamesInfoInTypes
 enrichNamesInfoInTypes []         tyi = pure tyi
 enrichNamesInfoInTypes (ti::rest) tyi = do
+  let Nothing = lookupType ti.name
+    | _ => enrichNamesInfoInTypes rest tyi
   ti <- normaliseCons ti
   let subes = concatMap allVarNames' $ subexprs ti
   new <- map join $ for (Prelude.toList subes) $ \n =>
