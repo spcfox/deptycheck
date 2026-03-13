@@ -86,10 +86,10 @@ record NamesInfoInTypes where
   constructor Names
   types : ListMap Name TypeInfo
   cons  : ListMap Name (TypeInfo, Con)
-  namesInTypes : ListMap TypeInfo $ SortedSet Name
+  namesInTypes : ListMap Name $ SortedSet Name
 
 lookupByType : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
-lookupByType @{tyi} = lookup' tyi.types >=> lookup' tyi.namesInTypes
+lookupByType @{tyi} = lookup' tyi.namesInTypes
 
 lookupByCon : NamesInfoInTypes => Name -> Maybe $ SortedSet Name
 lookupByCon @{tyi} = concatMap @{Deep} lookupByType . Prelude.toList . concatMap allVarNames' . conSubexprs . snd <=< lookup' tyi.cons
@@ -139,8 +139,7 @@ Semigroup NamesInfoInTypes where
   Names ts cs nit <+> Names ts' cs' nit' = Names (ts `mergeLeft` ts') (cs `mergeLeft` cs') (nit <+> nit')
 
 Monoid NamesInfoInTypes where
-  neutral = let _ = TypeInfoEqByName
-             in Names empty empty empty
+  neutral = Names empty empty empty
 
 export
 hasNameInsideDeep : NamesInfoInTypes => Name -> TTImp -> Bool
@@ -175,7 +174,7 @@ enrichNamesInfoInTypes (ti::rest) tyi = do
              then map toList $ catch $ getInfo' n
              else pure []
   let next = { types $= insert ti.name ti
-             , namesInTypes $= insert ti subes
+             , namesInTypes $= insert ti.name subes
              , cons $= mergeLeft $ fromList $ ti.cons <&> \con => (con.name, ti, con)
              } tyi
   assert_total $ enrichNamesInfoInTypes (new ++ rest) next
