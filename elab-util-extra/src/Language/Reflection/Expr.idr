@@ -70,26 +70,10 @@ argNames (x :: xs) @{_ :: _} = Expr.argName x :: argNames xs
 --- Compiler-based `TTImp` transformations ---
 ----------------------------------------------
 
-export
-normaliseAs'' : Elaboration m =>
-               (0 expected : Type) ->
-               TTImp -> m TTImp
-normaliseAs'' expected expr = do
-  let expr = cleanupNamedHoles expr
-  expr' <- normaliseAs expected expr
-  let (args, _) = unPi expr
-  let (args', ty) = unPi expr'
-  let args'' = comergeWith (\pre => {name := pre.name}) args args'
-  pure $ piAll ty args''
-
-public export %inline
-normaliseAs' : Elaboration m => (0 expected : Type) -> TTImp -> m TTImp
-normaliseAs' ty = normaliseAs'' ty
-
 -- More precise normalisation of type expressions
 public export %inline
 normaliseAsType : Elaboration m => TTImp -> m TTImp
-normaliseAsType = normaliseAs' Type
+normaliseAsType = normaliseAs Type
 
 ------------------------------------------------------------------------
 --- Facilities for managing any kind of function application at once ---
