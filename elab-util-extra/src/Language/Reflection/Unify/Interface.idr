@@ -7,7 +7,7 @@ import Data.SortedMap
 import Data.Vect
 import Data.Vect.Quantifiers
 import Decidable.Equality
-import Deriving.Show
+import public Deriving.Show
 import Language.Reflection
 import Language.Reflection.Expr
 import Language.Reflection.Syntax
