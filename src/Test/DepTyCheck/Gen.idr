@@ -77,6 +77,12 @@ data Gen : Emptiness -> Type -> Type where
           (0 _ : alem `NoWeaker` em) =>
           Gen em a
 
+  BindOneOf : (gs : GenAlternatives True lem a) ->
+              (a -> Gen rem b) ->
+              (0 _ : lem `NoWeaker` em) =>
+              (0 _ : rem `NoWeaker` em) =>
+              Gen em b
+
   Bind  : (0 _ : biem `NoWeaker` em) =>
           RawGen c -> (c -> Gen biem a) -> Gen em a
 
@@ -125,6 +131,7 @@ isNonEmptyGen1 {g=Pure _}       = Refl
 isNonEmptyGen1 {g=Raw _}        = Refl
 isNonEmptyGen1 {g=OneOf _}      = Refl
 isNonEmptyGen1 {g=Bind _ _}     = Refl
+isNonEmptyGen1 {g=BindOneOf {}} = Refl
 isNonEmptyGen1 {g=Labelled _ _} = Refl
 
 -----------------------------
@@ -158,6 +165,7 @@ total
 labelNonEmpty {g=Pure _}       = Refl
 labelNonEmpty {g=Raw _}        = Refl
 labelNonEmpty {g=OneOf _}      = Refl
+labelNonEmpty {g=BindOneOf {}} = Refl
 labelNonEmpty {g=Bind _ _}     = Refl
 labelNonEmpty {g=Labelled _ _} = Refl
 
@@ -227,15 +235,17 @@ relax @{nw} Empty           = rewrite maybeEmptyIsMinimal nw in Empty
 relax $ Pure x              = Pure x
 relax $ Raw x               = Raw x
 relax $ OneOf @{ne} @{nw} x = OneOf @{ne} @{transitive' nw %search} x
+relax $ BindOneOf @{lnw} @{rnw} gs f
+  = BindOneOf @{transitive' lnw %search} @{transitive' rnw %search} gs f
 relax $ Bind @{nw} x f      = Bind @{transitive' nw %search} x f
 relax $ Labelled l x        = Labelled @{relaxNonEmpty} l $ relax x
 
 relaxNonEmpty {g=Pure _}       = Refl
 relaxNonEmpty {g=Raw _}        = Refl
 relaxNonEmpty {g=OneOf _}      = Refl
+relaxNonEmpty {g=BindOneOf _ _} = Refl
 relaxNonEmpty {g=Bind _ _}     = Refl
 relaxNonEmpty {g=Labelled _ _} = Refl
-
 --------------------
 --- More utility ---
 --------------------
@@ -249,6 +259,7 @@ nonEmpty x     = Just x
 nonEmptyNonEmpty {g=Pure _}       = Refl
 nonEmptyNonEmpty {g=Raw _}        = Refl
 nonEmptyNonEmpty {g=OneOf _}      = Refl
+nonEmptyNonEmpty {g=BindOneOf {}} = Refl
 nonEmptyNonEmpty {g=Bind _ _}     = Refl
 nonEmptyNonEmpty {g=Labelled _ _} = Refl
 
@@ -312,6 +323,8 @@ allDetermValues Empty          = []
 allDetermValues $ Pure x       = [x]
 allDetermValues $ Raw {}       = [] -- here we take only determinicstic values, no raw gens
 allDetermValues $ OneOf gs     = toLazyList (unGenAlts gs) >>= \(_, g) => allDetermValues $ assert_smaller gs g
+allDetermValues $ BindOneOf gs f
+  = ?todo1
 allDetermValues $ Bind {}      = [] -- here we take only determinicstic values, no raw gens
 allDetermValues $ Labelled _ g = allDetermValues g
 
@@ -323,6 +336,8 @@ unGen1 $ Pure x         = pure x
 unGen1 $ Raw sf         = sf.unRawGen
 unGen1 $ OneOf @{_} @{nw} oo with 0 (nonEmptyIsMaximal nw)
   _ | Refl = assert_total unGen1 . force . pickWeighted oo.unGenAlts . finToNat =<< randomFin oo.totalWeight
+unGen1 $ BindOneOf @{lnw} @{rnw} gs f with 0 (nonEmptyIsMaximal lnw) | 0 (nonEmptyIsMaximal rnw)
+  _ | _ | Refl = assert_total unGen1 . f =<< assert_total unGen1 (OneOf @{believe_me ()} gs)
 unGen1 $ Bind @{nw} x f with 0 (nonEmptyIsMaximal nw)
   _ | Refl = x.unRawGen >>= unGen1 . f
 unGen1 $ Labelled l x   = manageLabel l >> unGen1 x
@@ -350,6 +365,8 @@ unGen $ Empty        = throwError ()
 unGen $ Pure x       = pure x
 unGen $ Raw sf       = sf.unRawGen
 unGen $ OneOf oo     = assert_total unGen . force . pickWeighted oo.unGenAlts . finToNat =<< randomFin oo.totalWeight
+unGen $ BindOneOf gs f @{nw}
+  = assert_total unGen . f =<< assert_total unGen (OneOf @{believe_me ()} @{nw} gs)
 unGen $ Bind x f     = x.unRawGen >>= unGen . f
 unGen $ Labelled l x = manageLabel l >> unGen x
 
@@ -410,95 +427,97 @@ Functor (Gen em) where
   map f $ Pure x         = Pure $ f x
   map f $ Raw sf         = Raw $ f <$> sf
   map f $ OneOf @{ne} oo = OneOf @{allMapOneOf $ \e => mapNonEmpty @{indexAll e ne}} $ mapOneOf oo $ assert_total $ map f
+  map f $ BindOneOf gs g = BindOneOf gs $ map f . g
   map f $ Bind x g       = Bind x $ map f . g
   map f $ Labelled l x   = Labelled @{mapNonEmpty} l $ map f x
 
 mapNonEmpty {g=Pure _}       = Refl
 mapNonEmpty {g=Raw _}        = Refl
 mapNonEmpty {g=OneOf _}      = Refl
+mapNonEmpty {g=BindOneOf {}} = Refl
 mapNonEmpty {g=Bind _ _}     = Refl
 mapNonEmpty {g=Labelled _ _} = Refl
 
 private infixl 3 <**>
 
-(<**>) : (g : Gen lem $ a -> b) -> (h : Gen rem a) -> Gen (min lem rem) b
-0 apNonEmpty : {g, h : _} -> IsNonEmpty g => IsNonEmpty h => IsNonEmpty $ g <**> h
+-- (<**>) : (g : Gen lem $ a -> b) -> (h : Gen rem a) -> Gen (min lem rem) b
+-- 0 apNonEmpty : {g, h : _} -> IsNonEmpty g => IsNonEmpty h => IsNonEmpty $ g <**> h
 
-g <**> h with (isEmpty g) proof 0 prfLeft | (isEmpty h) proof 0 prfRight
-  Empty <**> _ | _ | _ = rewrite minMaybeEmptyLeft rem in Empty
-  _ <**> Empty | _ | _ = rewrite minMaybeEmptyRight lem in Empty
+-- g <**> h with (isEmpty g) proof 0 prfLeft | (isEmpty h) proof 0 prfRight
+--   Empty <**> _ | _ | _ = rewrite minMaybeEmptyLeft rem in Empty
+--   _ <**> Empty | _ | _ = rewrite minMaybeEmptyRight lem in Empty
 
-  Pure f <**> g | _ | _ = f <$> relax @{rightNoWeakerMin} g
-  g <**> Pure x | _ | _ = relax @{leftNoWeakerMin} g <&> \f => f x
+--   Pure f <**> g | _ | _ = f <$> relax @{rightNoWeakerMin} g
+--   g <**> Pure x | _ | _ = relax @{leftNoWeakerMin} g <&> \f => f x
 
-  Raw sfl <**> Raw sfr | _ | _ = Raw $ sfl <*> sfr
+--   Raw sfl <**> Raw sfr | _ | _ = Raw $ sfl <*> sfr
 
-  Labelled l x <**> y | _     | False = Labelled @{apNonEmpty} l $ x <**> y
-  x <**> Labelled l y | False | _     = Labelled @{apNonEmpty} l $ x <**> y
+--   Labelled l x <**> y | _     | False = Labelled @{apNonEmpty} l $ x <**> y
+--   x <**> Labelled l y | False | _     = Labelled @{apNonEmpty} l $ x <**> y
 
-  OneOf @{ne} @{nw} oo <**> g | _ | False =
-      OneOf @{allMapOneOf $ \e => apNonEmpty @{indexAll e ne}}
-            @{minNoWeakerLeft nw} $
-        mapOneOf oo $ \x => assert_total $ x <**> g
-  g <**> OneOf @{ne} @{nw} oo | False | _ =
-    OneOf @{allMapOneOf $ \e => apNonEmpty @{%search} @{indexAll e ne}}
-          @{minNoWeakerRight nw} $
-      mapOneOf oo $ \x => assert_total $ g <**> x
+--   OneOf @{ne} @{nw} oo <**> g | _ | False =
+--       OneOf @{allMapOneOf $ \e => apNonEmpty @{indexAll e ne}}
+--             @{minNoWeakerLeft nw} $
+--         mapOneOf oo $ \x => assert_total $ x <**> g
+--   g <**> OneOf @{ne} @{nw} oo | False | _ =
+--     OneOf @{allMapOneOf $ \e => apNonEmpty @{%search} @{indexAll e ne}}
+--           @{minNoWeakerRight nw} $
+--       mapOneOf oo $ \x => assert_total $ g <**> x
 
-  Bind @{nw} x f <**> Raw y | _ | _ =
-    Bind @{minNoWeakerLeft nw}  x $ \c => f c <**> Raw y
-  Raw y <**> Bind @{nw} x f | _ | _ =
-    Bind @{minNoWeakerRight nw} x $ \c => Raw y <**> f c
+--   Bind @{nw} x f <**> Raw y | _ | _ =
+--     Bind @{minNoWeakerLeft nw}  x $ \c => f c <**> Raw y
+--   Raw y <**> Bind @{nw} x f | _ | _ =
+--     Bind @{minNoWeakerRight nw} x $ \c => Raw y <**> f c
 
-  Bind @{lnw} x f <**> Bind @{rnw} y g | _ | _ =
-    Bind @{minNoWeaker lnw rnw} [| (x, y) |] $ \(l, r) => f l <**> g r
+--   Bind @{lnw} x f <**> Bind @{rnw} y g | _ | _ =
+--     Bind @{minNoWeaker lnw rnw} [| (x, y) |] $ \(l, r) => f l <**> g r
 
-apNonEmpty with (isEmpty g) proof 0 prfLeft | (isEmpty h) proof 0 prfRight
-  apNonEmpty {g=Empty}        {h}              | True  | _     impossible
-  apNonEmpty {g}              {h=Empty}        | _     | True  impossible
+-- apNonEmpty with (isEmpty g) proof 0 prfLeft | (isEmpty h) proof 0 prfRight
+--   apNonEmpty {g=Empty}        {h}              | True  | _     impossible
+--   apNonEmpty {g}              {h=Empty}        | _     | True  impossible
 
-  apNonEmpty {g=Pure _}       {h=Pure _}       | _     | _     = Refl
-  apNonEmpty {g=Pure _}       {h=Raw _}        | _     | _     = Refl
-  apNonEmpty {g=Pure _}       {h=OneOf _}      | _     | _     = Refl
-  apNonEmpty {g=Pure _}       {h=Bind _ _}     | _     | _     = Refl
-  apNonEmpty {g=Pure _}       {h=Labelled _ _} | _     | _     = Refl
+--   apNonEmpty {g=Pure _}       {h=Pure _}       | _     | _     = Refl
+--   apNonEmpty {g=Pure _}       {h=Raw _}        | _     | _     = Refl
+--   apNonEmpty {g=Pure _}       {h=OneOf _}      | _     | _     = Refl
+--   apNonEmpty {g=Pure _}       {h=Bind _ _}     | _     | _     = Refl
+--   apNonEmpty {g=Pure _}       {h=Labelled _ _} | _     | _     = Refl
 
-  apNonEmpty {g=Raw _}        {h=Pure _}       | _     | _     = Refl
-  apNonEmpty {g=OneOf _}      {h=Pure _}       | _     | _     = Refl
-  apNonEmpty {g=Bind _ _}     {h=Pure _}       | _     | _     = Refl
-  apNonEmpty {g=Labelled _ _} {h=Pure _}       | _     | _     = Refl
+--   apNonEmpty {g=Raw _}        {h=Pure _}       | _     | _     = Refl
+--   apNonEmpty {g=OneOf _}      {h=Pure _}       | _     | _     = Refl
+--   apNonEmpty {g=Bind _ _}     {h=Pure _}       | _     | _     = Refl
+--   apNonEmpty {g=Labelled _ _} {h=Pure _}       | _     | _     = Refl
 
-  apNonEmpty {g=Raw _}        {h=Raw _}        | _     | _     = Refl
+--   apNonEmpty {g=Raw _}        {h=Raw _}        | _     | _     = Refl
 
-  apNonEmpty {g=Labelled _ _} {h=Raw _}        | _     | False = Refl
-  apNonEmpty {g=Labelled _ _} {h=OneOf _}      | _     | False = Refl
-  apNonEmpty {g=Labelled _ _} {h=Bind _ _}     | _     | False = Refl
-  apNonEmpty {g=Labelled _ _} {h=Labelled _ _} | _     | False = Refl
+--   apNonEmpty {g=Labelled _ _} {h=Raw _}        | _     | False = Refl
+--   apNonEmpty {g=Labelled _ _} {h=OneOf _}      | _     | False = Refl
+--   apNonEmpty {g=Labelled _ _} {h=Bind _ _}     | _     | False = Refl
+--   apNonEmpty {g=Labelled _ _} {h=Labelled _ _} | _     | False = Refl
 
-  apNonEmpty {g=Raw _}        {h=Labelled _ _} | False | False = Refl
-  apNonEmpty {g=OneOf _}      {h=Labelled _ _} | False | False = Refl
-  apNonEmpty {g=Bind _ _}     {h=Labelled _ _} | False | False = Refl
+--   apNonEmpty {g=Raw _}        {h=Labelled _ _} | False | False = Refl
+--   apNonEmpty {g=OneOf _}      {h=Labelled _ _} | False | False = Refl
+--   apNonEmpty {g=Bind _ _}     {h=Labelled _ _} | False | False = Refl
 
-  apNonEmpty {g=OneOf _}      {h=Raw _}        | False | False = Refl
-  apNonEmpty {g=OneOf _}      {h=OneOf _}      | False | False = Refl
-  apNonEmpty {g=OneOf _}      {h=Bind _ _}     | False | False = Refl
+--   apNonEmpty {g=OneOf _}      {h=Raw _}        | False | False = Refl
+--   apNonEmpty {g=OneOf _}      {h=OneOf _}      | False | False = Refl
+--   apNonEmpty {g=OneOf _}      {h=Bind _ _}     | False | False = Refl
 
-  apNonEmpty {g=Bind _ _}     {h=OneOf _}      | False | False = Refl
-  apNonEmpty {g=Raw _}        {h=OneOf _}      | False | False = Refl
+--   apNonEmpty {g=Bind _ _}     {h=OneOf _}      | False | False = Refl
+--   apNonEmpty {g=Raw _}        {h=OneOf _}      | False | False = Refl
 
-  apNonEmpty {g=Raw _}        {h=Bind _ _}     | _     | False = Refl
-  apNonEmpty {g=Bind _ _}     {h=Raw _}        | _     | False = Refl
+--   apNonEmpty {g=Raw _}        {h=Bind _ _}     | _     | False = Refl
+--   apNonEmpty {g=Bind _ _}     {h=Raw _}        | _     | False = Refl
 
-  apNonEmpty {g=Bind _ _}     {h=Bind _ _}     | _     | False = Refl
+--   apNonEmpty {g=Bind _ _}     {h=Bind _ _}     | _     | False = Refl
 
-export
-Applicative (Gen em) where
-  pure = Pure
-  g <*> h = rewrite sym $ minSame em in g <**> h
+-- export
+-- Applicative (Gen em) where
+--   pure = Pure
+--   g <*> h = rewrite sym $ minSame em in g <**> h
 
 private infixl 1 >>==
 
-(>>==) : {rem : _} -> Gen lem a -> (a -> Gen rem b) -> Gen (min lem rem) b
+(>>==) : Gen lem a -> (a -> Gen rem b) -> Gen (min lem rem) b
 0 bindNonEmpty : {f : a -> Gen1 b} -> IsNonEmpty g => IsNonEmpty $ g >>== f
 
 Empty          >>== _  = rewrite minMaybeEmptyLeft rem in Empty
@@ -506,27 +525,25 @@ Pure x         >>== nf = relax @{rightNoWeakerMin} $ nf x
 Raw g          >>== nf = Bind @{rightNoWeakerMin} g nf
 Bind @{nw} x f >>== nf = Bind @{minNoWeakerLeft nw} x $ (>>== nf) . f
 Labelled l x   >>== nf = label l $ x >>== nf
+OneOf @{ne} @{nw} gs >>== nf =
+  BindOneOf gs nf @{transitive nw leftNoWeakerMin} @{rightNoWeakerMin}
+BindOneOf @{lnw} @{rnw} gs f >>== nf =
+  BindOneOf gs (\x => f x >>== nf) @{believe_me ()} @{believe_me ()}
 
-(OneOf @{ne} @{nw} (MkGenAlts gs) >>== nf) {rem=NonEmpty} =
-  OneOf @{allMapTaggedLazy {f=assert_total (>>== nf)} $ \e => bindNonEmpty @{indexAll e ne}}
-        @{minNoWeakerLeft nw} $
-        MkGenAlts $ flip mapTaggedLazy gs $ assert_total (>>== nf)
+-- bindNonEmpty {g=Pure _}              = relaxNonEmpty @{isNonEmptyGen1}
+-- bindNonEmpty {g=Raw _}               = Refl
+-- bindNonEmpty {g=Bind _ _}            = Refl
+-- bindNonEmpty {g=Labelled _ _}        = labelNonEmpty @{bindNonEmpty}
+-- bindNonEmpty {g=OneOf $ MkGenAlts _} = Refl
 
--- Inlining `mkOneOf` for manual fusion
-(OneOf oo >>== nf) {rem=MaybeEmpty} = do
-  rewrite minMaybeEmptyRight lem
-  mkOneOfMaybeEmpty
-    (mapMaybeTaggedLazy (nonEmpty . assert_total (>>== nf)) oo.unGenAlts)
-    @{allMapMaybeJustTaggedLazy {f=nonEmpty . assert_total (>>== nf)} $ \_, _ => nonEmptyNonEmpty}
-
-bindNonEmpty {g=Pure _}              = relaxNonEmpty @{isNonEmptyGen1}
-bindNonEmpty {g=Raw _}               = Refl
-bindNonEmpty {g=Bind _ _}            = Refl
-bindNonEmpty {g=Labelled _ _}        = labelNonEmpty @{bindNonEmpty}
-bindNonEmpty {g=OneOf $ MkGenAlts _} = Refl
 
 export
-{em : _} -> Monad (Gen em) where
+Applicative (Gen em) where
+  pure = Pure
+  g <*> h = rewrite sym $ minSame em in g >>== flip map h
+
+export
+Monad (Gen em) where
   g >>= h = rewrite sym $ minSame em in g >>== h
 
 -----------------------------------------
@@ -689,6 +706,7 @@ alternativesOf g              = [g]
 alternativesOfNonEmpty {g=Pure _}        = [Refl]
 alternativesOfNonEmpty {g=Raw _}         = [Refl]
 alternativesOfNonEmpty {g=OneOf @{ne} _} = allMapOneOf $ \e => relaxNonEmpty @{indexAll e ne}
+alternativesOfNonEmpty {g=BindOneOf {}}  = believe_me ()
 alternativesOfNonEmpty {g=Bind _ _}      = [Refl]
 alternativesOfNonEmpty {g=Labelled _ _}  = allMapOneOfElem $ \_ => Refl
 
@@ -720,6 +738,7 @@ forgetAlternatives g              = g
 forgetAlternativesNonEmpty {g=Pure _}       = Refl
 forgetAlternativesNonEmpty {g=Raw _}        = Refl
 forgetAlternativesNonEmpty {g=OneOf _}      = Refl
+forgetAlternativesNonEmpty {g=BindOneOf {}} = Refl
 forgetAlternativesNonEmpty {g=Bind _ _}     = Refl
 forgetAlternativesNonEmpty {g=Labelled _ _} = Refl
 
