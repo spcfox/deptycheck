@@ -7,6 +7,7 @@ import public Control.Monad.Random.Interface
 
 import Data.Bool
 import public Data.CheckedEmpty.List.Lazy
+import Data.CheckedEmpty.List
 import Data.CheckedEmpty.List.Lazy.Elem
 import Data.CheckedEmpty.List.Lazy.Quantifiers
 import Data.CheckedEmpty.List.Lazy.Properties
@@ -15,6 +16,7 @@ import public Data.Nat1
 import Data.List
 import Data.List.Lazy
 import Data.List.Lazy.Extra
+import Data.SnocList
 import Data.Vect
 
 import Decidable.Equality
@@ -110,8 +112,12 @@ All p = All p . listOfAlts
 0 Elem : Gen em a -> GenAlternatives ne em a -> Type
 Elem g = Elem g . listOfAlts
 
-(.totalWeight) : GenAlternatives True em a -> Nat1
-(.totalWeight) = foldl1 (+) . map fst . unGenAlts
+(.totalWeight) : Lst1 (Nat1, a) -> Nat1
+(.totalWeight) = foldl1 (+) . map fst
+
+namespace GenAlternatives
+  (.totalWeight) : GenAlternatives True em a -> Nat1
+  (.totalWeight) = foldl1 (+) . map fst . unGenAlts
 
 public export %inline
 Gen1 : Type -> Type
@@ -359,15 +365,57 @@ pick1 gen = initSeed <&> \s => evalRandom s $ unGen1 gen
 
 --- Possibly empty generators ---
 
+toLst : LazyLst em a -> Lst em a
+toLst [] = []
+toLst $ x :: xs = x :: toLst xs
+
+(<>>) : (xs : SnocList a) -> Lst em a -> Lst (not (null xs) || em) a
+[<] <>> xs = xs
+(xs :< x) <>> ys = x :: (xs <>> ys)
+
+pickWeighted' : SnocList (Nat1, a) -> Lst1 (Nat1, a) -> Nat ->
+                (SnocList (Nat1, a), Lst1 (Nat1, a))
+pickWeighted' h wh@[(_, x)] _ = (h, wh)
+pickWeighted' h wh@((FromNat n, x) :: y :: ys) k =
+  if k < n
+     then (h, wh)
+     else pickWeighted' (h :< (FromNat n, x)) (assert_smaller wh $ y :: ys) $ k `minus` n
+
+unGenImpl : MonadRandom m => MonadError () m => CanManageLabels m =>
+            (a -> m (Maybe b)) -> Gen em a -> m (Maybe b)
+
+unGenOneOf : MonadRandom m => MonadError () m => CanManageLabels m =>
+             (a -> m (Maybe b)) -> Nat1 -> Lst lem (Nat1, Lazy (Gen em a)) -> m (Maybe b)
+unGenOneOf nf _ [] = pure Nothing
+unGenOneOf nf w ys@(x :: xs) = do
+  k <- randomFin w
+  let (h, (wg, g) :: gs) = pickWeighted' [<] (x :: xs) $ finToNat k
+  Nothing <- assert_total $ unGenImpl nf g
+    | Just val => pure $ Just val
+  unGenOneOf nf (FromNat @{believe_me ()} $ toNat w `minus` toNat wg) $
+    assert_smaller ys $ fromList (toList h) ++ gs
+
+unGenImpl nf $ Empty        = pure Nothing
+unGenImpl nf $ Pure x       = nf x
+unGenImpl nf $ Raw sf       = sf.unRawGen >>= nf
+unGenImpl nf $ OneOf gs     = do
+  let gs = toLst gs.unGenAlts
+  unGenOneOf nf gs.totalWeight gs
+unGenImpl nf $ Bind r f     = do
+  x <- r.unRawGen
+  Just y <- unGenImpl nf $ f x
+    | Nothing => throwError ()
+  pure $ Just y
+unGenImpl nf $ DelayedBind g f = unGenImpl (unGenImpl nf . f) g
+unGenImpl nf $ Labelled l g = do
+  Just x <- unGenImpl nf g
+    | Nothing => pure Nothing
+  manageLabel l
+  pure $ Just x
+
 export
-unGen : MonadRandom m => MonadError () m => (labels : CanManageLabels m) => Gen em a -> m a
-unGen $ Empty        = throwError ()
-unGen $ Pure x       = pure x
-unGen $ Raw sf       = sf.unRawGen
-unGen $ OneOf oo     = assert_total unGen . force . pickWeighted oo.unGenAlts . finToNat =<< randomFin oo.totalWeight
-unGen $ Bind x f     = x.unRawGen >>= unGen . f
-unGen $ DelayedBind g f = assert_total unGen . f =<< assert_total unGen g
-unGen $ Labelled l x = manageLabel l >> unGen x
+unGen : MonadRandom m => MonadError () m => CanManageLabels m => Gen em a -> m a
+unGen g = maybe (throwError ()) pure !(unGenImpl (pure . Just) g)
 
 export %inline
 unGen' : MonadRandom m => (labels : CanManageLabels m) => Gen em a -> m $ Maybe a
