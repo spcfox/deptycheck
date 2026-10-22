@@ -62,6 +62,9 @@ jobs:
         with:
           persist-credentials: false # https://docs.zizmor.sh/audits/#artipacked
 
+      - name: Install compiler
+        run: pack fetch
+
       - name: Select pack collection
         id: collection
         run: |
