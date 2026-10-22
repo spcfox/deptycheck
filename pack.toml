@@ -1,3 +1,7 @@
+[idris2]
+url = "https://github.com/spcfox/Idris2"
+commit = "41b6b8904e6bc04e8103be424add995b7ae44143"
+
 ################
 ### Settings ###
 ################
@@ -108,4 +112,3 @@ test = "tests/tests.ipkg"
 type = "local"
 path = "tests/lib/distribution/_common"
 ipkg = "test-distribution-common.ipkg"
-
